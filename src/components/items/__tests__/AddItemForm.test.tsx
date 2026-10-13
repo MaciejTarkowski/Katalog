@@ -96,4 +96,29 @@ describe("AddItemForm", () => {
       );
     });
   });
+  it("shows upload error message and does not call onSubmit when storage upload fails", async () => {
+    mockUploadCoverImage.mockResolvedValueOnce({
+      publicUrl: null,
+      error: "Bucket 'covers' not found or permission denied",
+    });
+
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(<AddItemForm onSubmit={onSubmit} />);
+
+    fireEvent.change(screen.getByLabelText("Tytuł *"), {
+      target: { value: "Hobbit" },
+    });
+    fireEvent.change(screen.getByLabelText("URL Okładki"), {
+      target: { value: "data:image/jpeg;base64,mockImageContent" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Dodaj do kolekcji" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Błąd przesyłania okładki/)
+      ).toBeInTheDocument();
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+  });
 });

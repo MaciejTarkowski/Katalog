@@ -102,4 +102,20 @@ describe("POST /api/ai/scan", () => {
     const json = await res.json();
     expect(json.error).toBe("Gemini quota exceeded");
   });
+  it("returns 502 when Gemini returns non-JSON response", async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: "Przepraszam, nie mogę rozpoznać tego przedmiotu.",
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/ai/scan", {
+      method: "POST",
+      body: JSON.stringify({ imageBase64: "validBase64Image" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(502);
+
+    const json = await res.json();
+    expect(json.error).toContain("nieprawidłowy format JSON");
+  });
 });

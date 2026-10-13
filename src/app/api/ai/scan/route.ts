@@ -85,7 +85,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const parsedData = JSON.parse(responseText);
+    let parsedData: Record<string, unknown>;
+    try {
+      parsedData = JSON.parse(responseText);
+    } catch {
+      return NextResponse.json(
+        { error: "Model Gemini zwrócił nieprawidłowy format JSON." },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

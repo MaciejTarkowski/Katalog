@@ -51,7 +51,12 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
 
     let finalCoverUrl = coverUrl.trim() || null;
     if (finalCoverUrl && finalCoverUrl.startsWith("data:image/")) {
-      const { publicUrl } = await uploadCoverImage(finalCoverUrl);
+      const { publicUrl, error: uploadError } = await uploadCoverImage(finalCoverUrl);
+      if (uploadError) {
+        setErrorMsg(`Błąd przesyłania okładki: ${uploadError}`);
+        setSubmitting(false);
+        return;
+      }
       if (publicUrl) {
         finalCoverUrl = publicUrl;
       }
