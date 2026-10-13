@@ -1,0 +1,124 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { fetchItems, fetchPublicItems, addItem, deleteItem } from "../api";
+
+const mockSelect = vi.fn();
+const mockOrder = vi.fn();
+const mockEq = vi.fn();
+const mockInsert = vi.fn();
+const mockDelete = vi.fn();
+const mockSingle = vi.fn();
+const mockGetUser = vi.fn();
+
+let currentQueryResult: { data: unknown; error: unknown } = { data: [], error: null };
+
+function createQueryBuilder() {
+  const getPromise = () => Promise.resolve(currentQueryResult);
+  const builder = {
+    order: vi.fn().mockImplementation(() => builder),
+    eq: vi.fn().mockImplementation(() => builder),
+    then: (onfulfilled?: any, onrejected?: any) => getPromise().then(onfulfilled, onrejected),
+    catch: (onrejected?: any) => getPromise().catch(onrejected),
+  };
+  return builder;
+}
+
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({
+    auth: {
+      getUser: mockGetUser,
+    },
+    from: (table: string) => {
+      if (table === "items") {
+        return {
+          select: mockSelect.mockImplementation(() => createQueryBuilder()),
+          insert: mockInsert.mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: mockSingle,
+            }),
+          }),
+          delete: mockDelete.mockReturnValue({
+            eq: mockEq,
+          }),
+        };
+      }
+      return {};
+    },
+  }),
+}));
+
+describe("Items API", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("fetchItems returns list of items", async () => {
+    const mockData = [
+      { id: "1", title: "Solaris", category: "book" },
+      { id: "2", title: "Kind of Blue", category: "music" },
+    ];
+    currentQueryResult = { data: mockData, error: null };
+
+    const result = await fetchItems();
+    expect(result.data).toEqual(mockData);
+    expect(result.error).toBeNull();
+  });
+
+  it("fetchPublicItems returns list of items for specified user_id", async () => {
+    const mockData = [
+      { id: "1", user_id: "user-456", title: "Solaris", category: "book" },
+    ];
+    currentQueryResult = { data: mockData, error: null };
+
+    const result = await fetchPublicItems("user-456");
+    expect(result.data).toEqual(mockData);
+    expect(result.error).toBeNull();
+  });
+
+  it("addItem returns error when user is not authenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    const result = await addItem({
+      title: "Dune",
+      artist_creator: "Frank Herbert",
+      category: "book",
+      subcategory: "sci-fi",
+      cover_url: null,
+      metadata: {},
+    });
+
+    expect(result.error).toBe("Użytkownik nie jest zalogowany");
+    expect(result.data).toBeNull();
+  });
+
+  it("addItem inserts and returns item when user is authenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
+    const insertedItem = {
+      id: "item-1",
+      user_id: "user-123",
+      title: "Dune",
+      category: "book",
+      metadata: {},
+    };
+    mockSingle.mockResolvedValue({ data: insertedItem, error: null });
+
+    const result = await addItem({
+      title: "Dune",
+      artist_creator: "Frank Herbert",
+      category: "book",
+      subcategory: "sci-fi",
+      cover_url: null,
+      metadata: {},
+    });
+
+    expect(result.data).toEqual(insertedItem);
+    expect(result.error).toBeNull();
+  });
+
+  it("deleteItem deletes successfully", async () => {
+    mockEq.mockResolvedValue({ error: null });
+
+    const result = await deleteItem("item-1");
+    expect(result.success).toBe(true);
+    expect(result.error).toBeNull();
+  });
+});
