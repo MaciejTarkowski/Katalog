@@ -118,4 +118,46 @@ describe("POST /api/ai/scan", () => {
     const json = await res.json();
     expect(json.error).toContain("nieprawidłowy format JSON");
   });
+
+  it("falls back to gemini-3.7-flash when primary returns 503 UNAVAILABLE", async () => {
+    const aiOutput = { title: "Solaris", category: "book" };
+
+    mockGenerateContent
+      .mockRejectedValueOnce(new Error("503 UNAVAILABLE: high demand"))
+      .mockResolvedValueOnce({ text: JSON.stringify(aiOutput) });
+
+    const req = new NextRequest("http://localhost:3000/api/ai/scan", {
+      method: "POST",
+      body: JSON.stringify({ imageBase64: "validBase64Image" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(json.data.title).toBe("Solaris");
+    // generateContent was called twice: primary failed, first fallback succeeded
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns 503 when all fallback models are unavailable", async () => {
+    mockGenerateContent.mockRejectedValue(
+      new Error("503 UNAVAILABLE: This model is currently experiencing high demand.")
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/ai/scan", {
+      method: "POST",
+      body: JSON.stringify({ imageBase64: "validBase64Image" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(503);
+
+    const json = await res.json();
+    expect(json.error).toContain("niedostępna");
+    // All 3 models should have been attempted
+    expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+  });
 });
+

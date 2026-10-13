@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
       "Rozpoznaj przedmiot kolekcjonerski przedstawiony na zdjęciu okładki/pudełka/etykiety (książka, płyta muzyczna, gra wideo, komiks lub inny). " +
       "Wyodrębnij dokładny tytuł, twórcę/autora/zespół/studio, kategorię, podkategorię/format (np. Winyl, CD, PS5, Manga, Hardcover) oraz specyficzne metadane (rok, wydawca, ISBN itp.).";
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.8-flash",
+    // Shared config — reused across all fallback models
+    const generateConfig = {
       contents: [
         {
           inlineData: {
@@ -75,7 +75,45 @@ export async function POST(req: NextRequest) {
           required: ["title", "category"],
         },
       },
-    });
+    };
+
+    // Model fallback chain: primary → fallback on 503 UNAVAILABLE / high demand
+    const MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"] as const;
+
+    let response;
+    let lastError: Error | null = null;
+
+    for (const model of MODELS) {
+      try {
+        response = await ai.models.generateContent({ model, ...generateConfig });
+        lastError = null;
+        break; // success — stop iterating
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        // Retry with next model only on capacity/availability errors
+        if (
+          message.includes("503") ||
+          message.includes("UNAVAILABLE") ||
+          message.includes("high demand")
+        ) {
+          lastError = err instanceof Error ? err : new Error(message);
+          continue;
+        }
+        // Any other error (auth, invalid payload, etc.) — rethrow immediately
+        throw err;
+      }
+    }
+
+    if (!response) {
+      // All models exhausted
+      const hint = lastError?.message ?? "Wszystkie modele Gemini są chwilowo przeciążone.";
+      return NextResponse.json(
+        {
+          error: `Usługa Gemini AI jest chwilowo niedostępna. Spróbuj ponownie za chwilę. (${hint})`,
+        },
+        { status: 503 }
+      );
+    }
 
     const responseText = response.text;
     if (!responseText) {
@@ -106,7 +144,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Wystąpił błąd podczas analizy obrazu przez AI.";
+    const message =
+      err instanceof Error ? err.message : "Wystąpił błąd podczas analizy obrazu przez AI.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
