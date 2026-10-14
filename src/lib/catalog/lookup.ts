@@ -71,7 +71,11 @@ async function lookupByEan(ean: string, categoryHint?: string): Promise<CatalogI
   return pickBest(await settled(tasks), categoryHint);
 }
 
-async function lookupByQuery(query: string, categoryHint?: string): Promise<CatalogItem | null> {
+async function lookupByQuery(
+  query: string,
+  categoryHint?: string,
+  known?: Pick<LookupInput, "title" | "creator">
+): Promise<CatalogItem | null> {
   const q = cleanSearchQuery(query);
   if (!q) return null;
 
@@ -79,7 +83,7 @@ async function lookupByQuery(query: string, categoryHint?: string): Promise<Cata
     return searchOpenLibrary(q, categoryHint);
   }
   if (categoryHint === "music") {
-    return pickBest(await settled([searchMusicBrainz(q), searchDiscogs(q)]), categoryHint, q);
+    return pickBest(await settled([searchMusicBrainz(q, known), searchDiscogs(q)]), categoryHint, q);
   }
   if (categoryHint === "game") {
     return searchRawg(q);
@@ -88,7 +92,7 @@ async function lookupByQuery(query: string, categoryHint?: string): Promise<Cata
   return pickBest(
     await settled([
       searchOpenLibrary(q),
-      searchMusicBrainz(q),
+      searchMusicBrainz(q, known),
       searchDiscogs(q),
       searchRawg(q),
     ]),
@@ -113,7 +117,7 @@ export async function lookupCatalogItem(input: LookupInput): Promise<CatalogItem
       const fromText = await lookupByEan(extracted, categoryHint);
       if (fromText) return fromText;
     }
-    return lookupByQuery(query, categoryHint);
+    return lookupByQuery(query, categoryHint, { title: input.title, creator: input.creator });
   }
 
   return null;

@@ -74,10 +74,30 @@ async function search(query: string): Promise<CatalogItem | null> {
   return fromRelease(release);
 }
 
+/** Strips Lucene syntax so user text cannot break the query. */
+function luceneTerms(value: string): string {
+  return value.replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export async function lookupMusicBrainzByBarcode(barcode: string): Promise<CatalogItem | null> {
   return search(`barcode:${barcode}`);
 }
 
-export async function searchMusicBrainz(query: string): Promise<CatalogItem | null> {
-  return search(`release:"${query.replace(/"/g, "")}" OR artist:"${query.replace(/"/g, "")}"`);
+export async function searchMusicBrainz(
+  query: string,
+  known?: { title?: string; creator?: string | null }
+): Promise<CatalogItem | null> {
+  const title = luceneTerms(known?.title ?? "");
+  if (title) {
+    const creator = luceneTerms(known?.creator ?? "");
+    if (creator) {
+      const exact = await search(`release:"${title}" AND artist:"${creator}"`);
+      if (exact) return exact;
+    }
+    return search(`release:"${title}"`);
+  }
+
+  const terms = luceneTerms(query);
+  if (!terms) return null;
+  return search(`release:(${terms}) OR artist:(${terms})`);
 }

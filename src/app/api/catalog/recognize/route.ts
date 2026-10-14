@@ -34,7 +34,12 @@ export async function POST(req: NextRequest) {
   }
 
   const query = [recognized.title, recognized.creator].filter(Boolean).join(" ");
-  const item = await lookupCatalogItem({ query, category: recognized.category }).catch(() => null);
+  const item = await lookupCatalogItem({
+    query,
+    title: recognized.title,
+    creator: recognized.creator,
+    category: recognized.category,
+  }).catch(() => null);
 
   return NextResponse.json({ success: true, data: mergeRecognition(recognized, item) });
 }

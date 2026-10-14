@@ -121,6 +121,84 @@ describe("lookupCatalogItem", () => {
     expect(item?.artist_creator).toBe("Grubson");
   });
 
+  function musicBrainzQueries() {
+    return (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes("musicbrainz.org"))
+      .map((url) => new URL(url).searchParams.get("query"));
+  }
+
+  it("searches MusicBrainz by title and artist separately when both are known", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes("musicbrainz.org")) {
+          const query = new URL(href).searchParams.get("query");
+          return jsonResponse({
+            releases:
+              query === 'release:"Kind of Blue" AND artist:"Miles Davis"'
+                ? [{ id: "mbid-kob", title: "Kind of Blue", "artist-credit": [{ name: "Miles Davis" }] }]
+                : [],
+          });
+        }
+        if (href.includes("coverartarchive.org") && init?.method === "HEAD") {
+          return { ok: true, status: 200, json: async () => ({}) };
+        }
+        return jsonResponse({ results: [] });
+      }
+    );
+
+    const item = await lookupCatalogItem({
+      query: "Kind of Blue Miles Davis",
+      title: "Kind of Blue",
+      creator: "Miles Davis",
+      category: "music",
+    });
+    expect(item?.title).toBe("Kind of Blue");
+    expect(item?.cover_url).toContain("coverartarchive.org/release/mbid-kob");
+  });
+
+  it("falls back to a title-only MusicBrainz search when title and artist find nothing", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes("musicbrainz.org")) {
+          const query = new URL(href).searchParams.get("query");
+          return jsonResponse({
+            releases:
+              query === 'release:"Gruby Brzuch"'
+                ? [{ id: "mbid-gb", title: "Gruby Brzuch", "artist-credit": [{ name: "Brzuch" }] }]
+                : [],
+          });
+        }
+        if (href.includes("coverartarchive.org") && init?.method === "HEAD") {
+          return { ok: true, status: 200, json: async () => ({}) };
+        }
+        return jsonResponse({ results: [] });
+      }
+    );
+
+    const item = await lookupCatalogItem({
+      query: "Gruby Brzuch Bzrzuch",
+      title: "Gruby Brzuch",
+      creator: "Bzrzuch",
+      category: "music",
+    });
+    expect(item?.title).toBe("Gruby Brzuch");
+    expect(item?.cover_url).toContain("coverartarchive.org");
+  });
+
+  it("does not search MusicBrainz for free text as a single quoted phrase", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ results: [], releases: [] })
+    );
+
+    await lookupCatalogItem({ query: "Gruby Brzuch Brzuch", category: "music" });
+    expect(musicBrainzQueries()).toEqual([
+      "release:(Gruby Brzuch Brzuch) OR artist:(Gruby Brzuch Brzuch)",
+    ]);
+  });
+
   it("searches RAWG for games when category is game", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       async (url: string) => {

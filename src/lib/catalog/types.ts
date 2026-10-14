@@ -21,6 +21,9 @@ export interface CatalogItem {
 export interface LookupInput {
   ean?: string;
   query?: string;
+  /** Title and creator as recognized on the cover, when known separately from `query`. */
+  title?: string;
+  creator?: string | null;
   category?: CatalogCategory | string;
 }
 

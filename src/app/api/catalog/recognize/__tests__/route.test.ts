@@ -54,6 +54,8 @@ describe("POST /api/catalog/recognize", () => {
     expect(mockRecognize).toHaveBeenCalledWith({ mimeType: "image/jpeg", data: "AAAA" });
     expect(mockLookup).toHaveBeenCalledWith({
       query: "Marvel's Spider-Man Insomniac Games",
+      title: "Marvel's Spider-Man",
+      creator: "Insomniac Games",
       category: "game",
     });
     expect(json.data).toMatchObject({
