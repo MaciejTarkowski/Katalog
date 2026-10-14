@@ -83,72 +83,144 @@ describe("CoverScanner", () => {
     expect(recognizeCoverText).not.toHaveBeenCalled();
   });
 
-  it("falls back to OCR when no barcode is found", async () => {
-    const onScanComplete = vi.fn();
-    (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
-      "Wiedźmin Andrzej Sapkowski"
-    );
-    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        success: true,
-        data: {
-          title: "Wiedźmin",
-          artist_creator: "Andrzej Sapkowski",
-          category: "book",
-          subcategory: null,
-          cover_url: null,
-          metadata: {},
-        },
-      }),
-    });
+  type FakeResponse = { ok: boolean; json: () => Promise<unknown> };
+  const ok = (data: unknown): FakeResponse => ({ ok: true, json: async () => ({ success: true, data }) });
+  const fail = (error: string, extra: Record<string, unknown> = {}): FakeResponse => ({
+    ok: false,
+    json: async () => ({ error, ...extra }),
+  });
 
-    render(<CoverScanner onScanComplete={onScanComplete} />);
+  /** Routes mocked fetch calls by endpoint; lookup answers are consumed in order. */
+  function routeFetch(recognize: FakeResponse | Error, ...lookups: FakeResponse[]) {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
+      if (url === "/api/catalog/recognize") {
+        if (recognize instanceof Error) throw recognize;
+        return recognize;
+      }
+      return lookups.shift() ?? fail("Nie znaleziono metadanych");
+    });
+  }
+
+  const lookupCalls = () =>
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([url]) => url === "/api/catalog/lookup"
+    );
+
+  function pickPhoto() {
     fireEvent.change(screen.getByTestId("cover-scan-file-input"), {
       target: { files: [new File(["dummy"], "cover.jpg", { type: "image/jpeg" })] },
     });
+  }
+
+  it("recognizes the cover with the vision API when no barcode is found", async () => {
+    const onScanComplete = vi.fn();
+    const recognized = {
+      title: "Gruby Brzuch",
+      artist_creator: "Grubson",
+      category: "music",
+      subcategory: "Winyl",
+      cover_url: null,
+      metadata: { source: "gemini" },
+    };
+    (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    routeFetch(ok(recognized));
+
+    render(<CoverScanner onScanComplete={onScanComplete} />);
+    pickPhoto();
 
     await waitFor(() => {
-      expect(recognizeCoverText).toHaveBeenCalled();
-      expect(global.fetch).toHaveBeenCalledWith("/api/catalog/lookup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: "Wiedźmin Andrzej Sapkowski" }),
+      expect(onScanComplete).toHaveBeenCalledWith({
+        ...recognized,
+        previewUrl: "data:image/jpeg;base64,mockCompressedBase64",
       });
-      expect(onScanComplete).toHaveBeenCalled();
     });
+    expect(global.fetch).toHaveBeenCalledWith("/api/catalog/recognize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: "data:image/jpeg;base64,mockCompressedBase64" }),
+    });
+    expect(recognizeCoverText).not.toHaveBeenCalled();
   });
 
+  it("falls back to OCR when the vision API is overloaded (503)", async () => {
+    const onScanComplete = vi.fn();
+    (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      query: "MARVEL SPIDER-MAN INSOMNIAC",
+      category: "game",
+      subcategory: "PS4",
+    });
+    routeFetch(
+      fail("Usługa rozpoznawania obrazu jest chwilowo niedostępna.", { unavailable: true }),
+      ok({
+        title: "Marvel's Spider-Man",
+        artist_creator: "Insomniac Games",
+        category: "game",
+        subcategory: "PlayStation 5",
+        cover_url: null,
+        metadata: {},
+      })
+    );
+
+    render(<CoverScanner onScanComplete={onScanComplete} />);
+    pickPhoto();
+
+    await waitFor(() => {
+      expect(onScanComplete).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Marvel's Spider-Man", category: "game", subcategory: "PS4" })
+      );
+    });
+    expect(lookupCalls()[0][1].body).toBe(
+      JSON.stringify({ query: "MARVEL SPIDER-MAN INSOMNIAC", category: "game" })
+    );
+  });
+
+  it("falls back to OCR when the vision API is unreachable", async () => {
+    const onScanComplete = vi.fn();
+    (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      query: "Wiedźmin Andrzej Sapkowski",
+    });
+    routeFetch(
+      new TypeError("Failed to fetch"),
+      ok({
+        title: "Wiedźmin",
+        artist_creator: "Andrzej Sapkowski",
+        category: "book",
+        subcategory: null,
+        cover_url: null,
+        metadata: {},
+      })
+    );
+
+    render(<CoverScanner onScanComplete={onScanComplete} />);
+    pickPhoto();
+
+    await waitFor(() => expect(onScanComplete).toHaveBeenCalled());
+    expect(lookupCalls()[0][1].body).toBe(JSON.stringify({ query: "Wiedźmin Andrzej Sapkowski" }));
+  });
 
   it("shows OCR text for manual correction when lookup finds nothing", async () => {
     const onScanComplete = vi.fn();
     (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue("MAN INSOMNIAC");
-    (global.fetch as unknown as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ error: "Nie znaleziono metadanych w darmowych bazach katalogowych." }),
+    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      query: "MAN INSOMNIAC",
+    });
+    routeFetch(
+      fail("Nie udało się rozpoznać okładki."),
+      fail("Nie znaleziono metadanych w darmowych bazach katalogowych."),
+      ok({
+        title: "Marvel's Spider-Man",
+        artist_creator: "Insomniac Games",
+        category: "game",
+        subcategory: "PlayStation 4",
+        cover_url: null,
+        metadata: {},
       })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            title: "Marvel's Spider-Man",
-            artist_creator: "Insomniac Games",
-            category: "game",
-            subcategory: "PlayStation 4",
-            cover_url: null,
-            metadata: {},
-          },
-        }),
-      });
+    );
 
     render(<CoverScanner onScanComplete={onScanComplete} />);
-    fireEvent.change(screen.getByTestId("cover-scan-file-input"), {
-      target: { files: [new File(["dummy"], "cover.jpg", { type: "image/jpeg" })] },
-    });
+    pickPhoto();
 
     const input = await screen.findByLabelText(/Popraw odczytany tekst/i);
     expect(input).toHaveValue("MAN INSOMNIAC");
@@ -172,17 +244,16 @@ describe("CoverScanner", () => {
     expect(screen.queryByLabelText(/Popraw odczytany tekst/i)).not.toBeInTheDocument();
   });
 
-  it("shows an empty manual search field when OCR reads nothing", async () => {
+  it("shows an empty manual search field when vision and OCR both fail", async () => {
     (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue("");
+    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ query: "" });
+    routeFetch(fail("niedostępna", { unavailable: true }));
 
     render(<CoverScanner onScanComplete={vi.fn()} onError={vi.fn()} />);
-    fireEvent.change(screen.getByTestId("cover-scan-file-input"), {
-      target: { files: [new File(["dummy"], "cover.jpg", { type: "image/jpeg" })] },
-    });
+    pickPhoto();
 
     expect(await screen.findByLabelText(/Popraw odczytany tekst/i)).toHaveValue("");
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(lookupCalls()).toHaveLength(0);
   });
 
   it("triggers onError when lookup fails", async () => {

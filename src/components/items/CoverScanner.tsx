@@ -27,19 +27,37 @@ type ScanPhase =
   | "idle"
   | "compressing"
   | "barcode"
+  | "recognize"
   | "ocr"
   | "lookup";
 
 const PHASE_LABEL: Record<Exclude<ScanPhase, "idle">, string> = {
   compressing: "Kompresja zdjęcia...",
   barcode: "Szukam kodu kreskowego...",
+  recognize: "Rozpoznawanie okładki...",
   ocr: "Rozpoznawanie tekstu (OCR)...",
   lookup: "Dociąganie danych z baz katalogowych...",
 };
 
+/** Vision recognition on the server; null means "not available, fall back to local OCR". */
+async function recognizeWithVision(imageDataUrl: string): Promise<ScannedItemData | null> {
+  try {
+    const res = await fetch("/api/catalog/recognize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: imageDataUrl }),
+    });
+    const json = await res.json();
+    return res.ok && json.success ? (json.data as ScannedItemData) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function lookupMetadata(payload: {
   ean?: string;
   query?: string;
+  category?: string;
 }): Promise<ScannedItemData> {
   const res = await fetch("/api/catalog/lookup", {
     method: "POST",
@@ -70,11 +88,15 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
     });
   };
 
-  const handleLookup = async (payload: { ean?: string; query?: string }, previewUrl?: string) => {
+  const handleLookup = async (
+    payload: { ean?: string; query?: string; category?: string },
+    previewUrl?: string,
+    subcategory?: string
+  ) => {
     setPhase("lookup");
     setStatusText(PHASE_LABEL.lookup);
     const data = await lookupMetadata(payload);
-    finishWithData(data, previewUrl);
+    finishWithData(subcategory ? { ...data, subcategory } : data, previewUrl);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,14 +126,27 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
         return;
       }
 
+      setPhase("recognize");
+      setStatusText(PHASE_LABEL.recognize);
+      const recognized = await recognizeWithVision(compressed.dataUrl);
+      if (recognized) {
+        finishWithData(recognized, compressed.dataUrl);
+        return;
+      }
+
       setPhase("ocr");
       setStatusText(PHASE_LABEL.ocr);
-      ocrText = await recognizeCoverText(file);
+      const cover = await recognizeCoverText(file);
+      ocrText = cover.query;
       if (!ocrText) {
         throw new Error("Nie udało się odczytać tekstu z okładki. Wpisz tytuł ręcznie.");
       }
 
-      await handleLookup({ query: ocrText }, compressed.dataUrl);
+      await handleLookup(
+        { query: ocrText, category: cover.category },
+        compressed.dataUrl,
+        cover.subcategory
+      );
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Wystąpił błąd podczas skanowania.";
