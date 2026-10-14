@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fetchItems, fetchPublicItems, addItem, deleteItem } from "../api";
+import { fetchItems, fetchPublicItems, fetchItemById, addItem, deleteItem } from "../api";
 
 const mockSelect = vi.fn();
 const mockOrder = vi.fn();
@@ -16,6 +16,7 @@ function createQueryBuilder() {
   const builder = {
     order: vi.fn().mockImplementation(() => builder),
     eq: vi.fn().mockImplementation(() => builder),
+    maybeSingle: vi.fn().mockImplementation(() => getPromise()),
     then: (onfulfilled?: any, onrejected?: any) => getPromise().then(onfulfilled, onrejected),
     catch: (onrejected?: any) => getPromise().catch(onrejected),
   };
@@ -120,5 +121,24 @@ describe("Items API", () => {
     const result = await deleteItem("item-1");
     expect(result.success).toBe(true);
     expect(result.error).toBeNull();
+  });
+
+  it("fetchItemById returns a single item", async () => {
+    currentQueryResult = { data: { id: "1", title: "Solaris", category: "book" }, error: null };
+    const result = await fetchItemById("1");
+    expect(mockSelect).toHaveBeenCalledWith("*");
+    expect(result).toEqual({ data: { id: "1", title: "Solaris", category: "book" }, error: null });
+  });
+
+  it("fetchItemById reports a missing item", async () => {
+    currentQueryResult = { data: null, error: null };
+    const result = await fetchItemById("missing");
+    expect(result).toEqual({ data: null, error: "Nie znaleziono elementu." });
+  });
+
+  it("fetchItemById returns the database error", async () => {
+    currentQueryResult = { data: null, error: { message: "invalid input syntax for type uuid" } };
+    const result = await fetchItemById("bad");
+    expect(result).toEqual({ data: null, error: "invalid input syntax for type uuid" });
   });
 });

@@ -41,6 +41,10 @@ describe("PublicCollectionView", () => {
       // Ensure NO delete button is present (read-only)
       expect(screen.queryByRole("button", { name: /Usuń/i })).not.toBeInTheDocument();
     });
+    expect(screen.getByRole("link", { name: /Gra o Tron/ })).toHaveAttribute(
+      "href",
+      "/item/item-1?from=share"
+    );
   });
 
   it("copies link to clipboard when clicking Udostępnij button", async () => {

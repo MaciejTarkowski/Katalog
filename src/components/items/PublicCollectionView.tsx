@@ -83,6 +83,7 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
           isLoading={loading}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
+          fromShare
         />
       )}
 

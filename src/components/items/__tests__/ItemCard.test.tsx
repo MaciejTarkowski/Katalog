@@ -42,4 +42,17 @@ describe("ItemCard", () => {
     fireEvent.click(deleteButton);
     expect(onDelete).toHaveBeenCalledWith("item-101");
   });
+
+  it("links the cover and title to the item detail page", () => {
+    render(<ItemCard item={sampleItem} />);
+    expect(screen.getByRole("link", { name: /Solaris/ })).toHaveAttribute("href", "/item/item-101");
+  });
+
+  it("marks links from a shared collection", () => {
+    render(<ItemCard item={sampleItem} fromShare />);
+    expect(screen.getByRole("link", { name: /Solaris/ })).toHaveAttribute(
+      "href",
+      "/item/item-101?from=share"
+    );
+  });
 });

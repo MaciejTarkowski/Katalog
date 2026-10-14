@@ -9,6 +9,7 @@ interface ItemListProps {
   selectedCategory: string;
   onSelectCategory: (category: string) => void;
   onDeleteItem?: (id: string) => void;
+  fromShare?: boolean;
 }
 
 const CATEGORY_TABS = [
@@ -26,6 +27,7 @@ export function ItemList({
   selectedCategory,
   onSelectCategory,
   onDeleteItem,
+  fromShare,
 }: ItemListProps) {
   const filteredItems =
     selectedCategory === "all"
@@ -95,7 +97,7 @@ export function ItemList({
                 <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory py-2 -mx-1 px-1 scrollbar-none">
                   {rowItems.map((item) => (
                     <div key={item.id} className="w-32 sm:w-40 flex-shrink-0 snap-start">
-                      <ItemCard item={item} onDelete={onDeleteItem} />
+                      <ItemCard item={item} onDelete={onDeleteItem} fromShare={fromShare} />
                     </div>
                   ))}
                 </div>
@@ -109,7 +111,7 @@ export function ItemList({
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
         >
           {filteredItems.map((item) => (
-            <ItemCard key={item.id} item={item} onDelete={onDeleteItem} />
+            <ItemCard key={item.id} item={item} onDelete={onDeleteItem} fromShare={fromShare} />
           ))}
         </div>
       )}

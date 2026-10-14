@@ -136,6 +136,13 @@ export async function mockBackend(page: Page, seed: MockItem[] = SEED_ITEMS): Pr
       if (userFilter?.startsWith("eq.")) rows = rows.filter((r) => r.user_id === userFilter.slice(3));
       const catFilter = url.searchParams.get("category");
       if (catFilter?.startsWith("eq.")) rows = rows.filter((r) => r.category === catFilter.slice(3));
+      const idFilter = url.searchParams.get("id");
+      if (idFilter?.startsWith("eq.")) rows = rows.filter((r) => r.id === idFilter.slice(3));
+      if ((req.headers()["accept"] || "").includes("vnd.pgrst.object")) {
+        return rows[0]
+          ? route.fulfill({ json: rows[0] })
+          : route.fulfill({ status: 406, json: { code: "PGRST116", message: "0 rows" } });
+      }
       return route.fulfill({ json: rows });
     }
 

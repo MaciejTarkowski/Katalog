@@ -50,6 +50,27 @@ export async function fetchPublicItems(
   }
 }
 
+export async function fetchItemById(
+  id: string
+): Promise<{ data: Item | null; error: string | null }> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.from("items").select("*").eq("id", id).maybeSingle();
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+    if (!data) {
+      return { data: null, error: "Nie znaleziono elementu." };
+    }
+
+    return { data: data as Item, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Błąd podczas pobierania elementu";
+    return { data: null, error: message };
+  }
+}
+
 export async function addItem(
   item: Omit<ItemInsert, "id" | "user_id" | "created_at" | "updated_at">
 ): Promise<{ data: Item | null; error: string | null }> {
