@@ -12,7 +12,7 @@ vi.mock("html5-qrcode", () => ({
     clear = clear;
     start = start;
     stop = stop;
-    constructor(_id: string) {}
+    constructor() {}
   },
 }));
 

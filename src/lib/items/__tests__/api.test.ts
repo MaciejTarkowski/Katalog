@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fetchItems, fetchPublicItems, fetchItemById, addItem, deleteItem } from "../api";
 
 const mockSelect = vi.fn();
-const mockOrder = vi.fn();
 const mockEq = vi.fn();
 const mockInsert = vi.fn();
 const mockDelete = vi.fn();
@@ -18,8 +17,11 @@ function createQueryBuilder() {
     order: vi.fn().mockImplementation(() => builder),
     eq: mockQueryEq.mockImplementation(() => builder),
     maybeSingle: vi.fn().mockImplementation(() => getPromise()),
-    then: (onfulfilled?: any, onrejected?: any) => getPromise().then(onfulfilled, onrejected),
-    catch: (onrejected?: any) => getPromise().catch(onrejected),
+    then: (
+      onfulfilled?: (value: typeof currentQueryResult) => unknown,
+      onrejected?: (reason: unknown) => unknown
+    ) => getPromise().then(onfulfilled, onrejected),
+    catch: (onrejected?: (reason: unknown) => unknown) => getPromise().catch(onrejected),
   };
   return builder;
 }

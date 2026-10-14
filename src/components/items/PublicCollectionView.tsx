@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Item } from "@/types/database";
 import { fetchPublicItems } from "@/lib/items/api";
@@ -19,21 +19,22 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
   const [copied, setCopied] = useState(false);
   const [ownerName, setOwnerName] = useState<string | null>(null);
 
-  const loadPublicItems = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg(null);
-    const { data, error } = await fetchPublicItems(userId);
-    if (error) {
-      setErrorMsg(error);
-    } else if (data) {
-      setItems(data);
-    }
-    setLoading(false);
-  }, [userId]);
-
   useEffect(() => {
-    loadPublicItems();
-  }, [loadPublicItems]);
+    let cancelled = false;
+    fetchPublicItems(userId).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) {
+        setErrorMsg(error);
+      } else if (data) {
+        setErrorMsg(null);
+        setItems(data);
+      }
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
