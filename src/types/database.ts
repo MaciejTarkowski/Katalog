@@ -17,6 +17,12 @@ export type ItemInsert = Omit<Item, "id" | "created_at" | "updated_at"> & {
   updated_at?: string;
 };
 
+/** Another user's item offered as a template when adding — without id or owner. */
+export type CommunityItem = Pick<
+  Item,
+  "title" | "artist_creator" | "category" | "subcategory" | "cover_url" | "metadata"
+>;
+
 export type ItemUpdate = Partial<Omit<Item, "id" | "user_id" | "created_at">>;
 
 /** Public profile (table `profiles`) — the name shown on a shared collection. */
