@@ -138,5 +138,13 @@ describe("ItemList", () => {
     );
 
     expect(screen.getByText("Pusta kolekcja")).toBeInTheDocument();
+    expect(screen.getByText(/Dodaj swój pierwszy przedmiot!/)).toBeInTheDocument();
+  });
+
+  it("does not invite a guest to add items in the shared view", () => {
+    render(<ItemList items={[]} selectedCategory="all" onSelectCategory={vi.fn()} fromShare />);
+
+    expect(screen.getByText("Pusta kolekcja")).toBeInTheDocument();
+    expect(screen.queryByText(/Dodaj swój pierwszy przedmiot!/)).not.toBeInTheDocument();
   });
 });

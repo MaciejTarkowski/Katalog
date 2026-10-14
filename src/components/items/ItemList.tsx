@@ -114,7 +114,7 @@ export function ItemList({
         <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-slate-800/80">
           <p className="text-sm font-semibold text-slate-300">Pusta kolekcja</p>
           <p className="text-xs text-slate-500 mt-1">
-            Brak elementów w wybranej kategorii. Dodaj swój pierwszy przedmiot!
+            Brak elementów w wybranej kategorii.{!fromShare && " Dodaj swój pierwszy przedmiot!"}
           </p>
         </div>
       ) : selectedCategory === "all" && !normalizedQuery ? (
