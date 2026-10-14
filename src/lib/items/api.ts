@@ -4,7 +4,21 @@ import { Item, ItemInsert } from "@/types/database";
 export async function fetchItems(category?: string): Promise<{ data: Item[] | null; error: string | null }> {
   try {
     const supabase = createClient();
-    let query = supabase.from("items").select("*").order("created_at", { ascending: false });
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { data: null, error: "Użytkownik nie jest zalogowany" };
+    }
+
+    // RLS allows public read (share links), so scope to the owner explicitly.
+    let query = supabase
+      .from("items")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
 
     if (category && category !== "all") {
       query = query.eq("category", category);

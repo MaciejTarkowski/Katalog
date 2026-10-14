@@ -1,4 +1,4 @@
-import { test, expect, mockBackend, login, SEED_ITEMS } from "./fixtures";
+import { test, expect, mockBackend, login, SEED_ITEMS, makeItem } from "./fixtures";
 
 test.describe("1. Wyświetlanie kolekcji i kategorii/podkategorii", () => {
   test("pokazuje wszystkie elementy kolekcji po zalogowaniu", async ({ page }) => {
@@ -9,6 +9,18 @@ test.describe("1. Wyświetlanie kolekcji i kategorii/podkategorii", () => {
       await expect(page.getByTestId(`item-card-${item.id}`)).toBeVisible();
     }
     await expect(page.getByTestId(/^item-card-/)).toHaveCount(SEED_ITEMS.length);
+  });
+
+  test("nie pokazuje elementów innych użytkowników (RLS pozwala je czytać)", async ({ page }) => {
+    await mockBackend(page, [
+      ...SEED_ITEMS,
+      makeItem({ id: "x1", title: "Cudzy element", user_id: "someone-else" }),
+    ]);
+    await login(page);
+
+    await expect(page.getByTestId("item-card-b1")).toBeVisible();
+    await expect(page.getByTestId(/^item-card-/)).toHaveCount(SEED_ITEMS.length);
+    await expect(page.getByText("Cudzy element")).toHaveCount(0);
   });
 
   test("filtruje po kategorii", async ({ page }) => {

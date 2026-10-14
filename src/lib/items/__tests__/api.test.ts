@@ -8,6 +8,7 @@ const mockInsert = vi.fn();
 const mockDelete = vi.fn();
 const mockSingle = vi.fn();
 const mockGetUser = vi.fn();
+const mockQueryEq = vi.fn();
 
 let currentQueryResult: { data: unknown; error: unknown } = { data: [], error: null };
 
@@ -15,7 +16,7 @@ function createQueryBuilder() {
   const getPromise = () => Promise.resolve(currentQueryResult);
   const builder = {
     order: vi.fn().mockImplementation(() => builder),
-    eq: vi.fn().mockImplementation(() => builder),
+    eq: mockQueryEq.mockImplementation(() => builder),
     maybeSingle: vi.fn().mockImplementation(() => getPromise()),
     then: (onfulfilled?: any, onrejected?: any) => getPromise().then(onfulfilled, onrejected),
     catch: (onrejected?: any) => getPromise().catch(onrejected),
@@ -58,10 +59,28 @@ describe("Items API", () => {
       { id: "2", title: "Kind of Blue", category: "music" },
     ];
     currentQueryResult = { data: mockData, error: null };
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
 
     const result = await fetchItems();
     expect(result.data).toEqual(mockData);
     expect(result.error).toBeNull();
+  });
+
+  it("fetchItems returns only the signed-in user's items (public read RLS)", async () => {
+    currentQueryResult = { data: [], error: null };
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
+
+    await fetchItems();
+    expect(mockQueryEq).toHaveBeenCalledWith("user_id", "user-123");
+  });
+
+  it("fetchItems returns error when user is not authenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    const result = await fetchItems();
+    expect(result.data).toBeNull();
+    expect(result.error).toBe("Użytkownik nie jest zalogowany");
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it("fetchPublicItems returns list of items for specified user_id", async () => {
