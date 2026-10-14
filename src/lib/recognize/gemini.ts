@@ -16,14 +16,17 @@ export class GeminiUnavailableError extends Error {
   }
 }
 
-const DEFAULT_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
+const DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const RETRIES_PER_MODEL = 1;
 const TIMEOUT_MS = 20_000;
 
 const PROMPT = `Na zdjęciu jest okładka elementu kolekcji (książka, płyta CD/winyl/kaseta, gra, komiks).
-Rozpoznaj go. Zwróć oficjalny tytuł i twórcę (autor / wykonawca / studio), nie opis zdjęcia.
+Kolekcja należy do osoby z Polski — wiele pozycji to polskie wydania i polscy wykonawcy.
+Najpierw w visible_text przepisz dokładnie wszystkie widoczne napisy i ich fragmenty (także ozdobne kroje, np. gotyckie),
+bez zgadywania. Dopiero potem rozpoznaj pozycję tak, by pasowała do tych fragmentów.
+Zwróć oficjalny tytuł i twórcę (autor / wykonawca / studio), nie opis zdjęcia.
 category: book, music, game, comic albo other.
 subcategory: dla gier platforma (np. "PS4", "PS5", "Xbox One", "Switch", "PC"), dla muzyki nośnik ("CD", "Winyl", "Kaseta"), inaczej null.
 Jeśli tekst jest częściowo zasłonięty, użyj wiedzy o znanych wydaniach.`;
@@ -31,12 +34,14 @@ Jeśli tekst jest częściowo zasłonięty, użyj wiedzy o znanych wydaniach.`;
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
+    visible_text: { type: "STRING" },
     title: { type: "STRING" },
     creator: { type: "STRING", nullable: true },
     category: { type: "STRING", enum: [...CATALOG_CATEGORIES] },
     subcategory: { type: "STRING", nullable: true },
   },
-  required: ["title", "category"],
+  required: ["visible_text", "title", "category"],
+  propertyOrdering: ["visible_text", "title", "creator", "category", "subcategory"],
 };
 
 function configuredModels(): string[] {

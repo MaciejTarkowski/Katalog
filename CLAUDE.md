@@ -42,12 +42,12 @@ Tests live in `__tests__/` next to the code. Alias `@/` → `src/`.
 Mobile-first PWA for cataloguing a collection (books, music, games, comics). Supabase + one API route.
 
 Add-item flow:
-1. `components/items/CoverScanner.tsx` compresses the photo (`lib/image/compress.ts`), tries a barcode (`lib/scan/barcode.ts`), falls back to OCR (`lib/scan/ocr.ts`) — all in the browser.
-2. POST `{ ean?, query?, category? }` to `app/api/catalog/lookup/route.ts`.
+1. `components/items/CoverScanner.tsx` compresses the photo (`lib/image/compress.ts`), tries a barcode (`lib/scan/barcode.ts`), then Gemini vision via POST `{ image }` to `app/api/catalog/recognize/route.ts` (`lib/recognize/gemini.ts`: retry on 503/429, then next model from `GEMINI_MODELS`), then local OCR (`lib/scan/ocr.ts`), then the manual search field.
+2. OCR/barcode path: POST `{ ean?, query?, category? }` to `app/api/catalog/lookup/route.ts`. The recognize route calls the same lookup and merges it with `lib/recognize/merge.ts` (title/category from Gemini, cover/metadata from a catalog hit with a matching title).
 3. `lib/catalog/lookup.ts` queries providers in `lib/catalog/providers/` (Open Library, MusicBrainz, Discogs, RAWG) in parallel and picks the most complete result. Order: EAN → EAN extracted from OCR text → free-text search. HTTP goes through `catalogFetch` (`lib/catalog/http.ts`).
 4. `AddItemForm` saves via `lib/items/api.ts`; covers go to the Storage bucket `covers` (`lib/storage/upload.ts`).
 
-No AI/LLM call in the code — `GEMINI_API_KEY` in `.env.example` is a leftover.
+The only AI call is Gemini in `lib/recognize/gemini.ts` (REST, no SDK) — always mock `fetch` for it in tests.
 
 Supabase:
 - `lib/supabase/client.ts` (browser) / `server.ts` (cookies); both fall back to placeholder credentials.
@@ -58,6 +58,6 @@ PWA: `public/manifest.json` + `public/sw.js`, registered by `PwaRegister.tsx` in
 
 ## Environment
 
-`.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Optional: `RAWG_API_KEY` (no game search without it), `DISCOGS_TOKEN` (works without, lower rate limits).
+`.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. `GEMINI_API_KEY` (without it scanning skips straight to OCR); optional `GEMINI_MODELS` (comma list, default `gemini-3.8-flash,gemini-3.5-flash,gemini-3.5-flash-lite`). Optional: `RAWG_API_KEY` (no game search without it), `DISCOGS_TOKEN` (works without, lower rate limits).
 
 `BUGS.MD` — the user's list of open bugs.
