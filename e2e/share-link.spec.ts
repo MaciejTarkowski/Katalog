@@ -38,7 +38,7 @@ test.describe("5. Link udostępniania", () => {
     await expect(page.getByRole("button", { name: /^Usuń/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Dodaj przedmiot/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Dodaj do kolekcji" })).toHaveCount(0);
-    await expect(page.locator("input:not([type=hidden]), select, textarea")).toHaveCount(0);
+    await expect(page.locator("input:not([type=hidden]):not([type=search]), select, textarea")).toHaveCount(0);
     expect(backend.writes).toHaveLength(0);
   });
 

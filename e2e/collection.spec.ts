@@ -44,3 +44,25 @@ test.describe("1. Wyświetlanie kolekcji i kategorii/podkategorii", () => {
     await expect(game.getByText("PS5", { exact: true })).toBeVisible();
   });
 });
+
+test.describe("7. Wyszukiwanie w kolekcji", () => {
+  test("filtruje po tytule i twórcy, bez polskich znaków", async ({ page }) => {
+    await mockBackend(page);
+    await login(page);
+    const search = page.getByRole("searchbox", { name: "Szukaj w kolekcji" });
+
+    await search.fill("wiedzmin");
+    await expect(page.getByTestId(/^item-card-/)).toHaveCount(1);
+    await expect(page.getByTestId("item-card-g1")).toBeVisible();
+
+    await search.fill("pink floyd");
+    await expect(page.getByTestId(/^item-card-/)).toHaveCount(1);
+    await expect(page.getByTestId("item-card-m1")).toBeVisible();
+
+    await search.fill("nie ma takiego");
+    await expect(page.getByText("Brak wyników dla „nie ma takiego”")).toBeVisible();
+
+    await search.fill("");
+    await expect(page.getByTestId(/^item-card-/)).toHaveCount(SEED_ITEMS.length);
+  });
+});

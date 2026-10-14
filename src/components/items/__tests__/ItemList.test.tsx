@@ -81,6 +81,37 @@ describe("ItemList", () => {
     expect(screen.queryByRole("region")).not.toBeInTheDocument();
   });
 
+  it("searches the collection by title, ignoring case and Polish diacritics", () => {
+    render(
+      <ItemList items={itemsMock} selectedCategory="all" onSelectCategory={vi.fn()} />
+    );
+
+    fireEvent.change(screen.getByRole("searchbox", { name: /Szukaj w kolekcji/i }), {
+      target: { value: "ABBEY" },
+    });
+
+    const grid = screen.getByTestId("item-grid");
+    expect(within(grid).getByText("Abbey Road")).toBeInTheDocument();
+    expect(screen.queryByText("Diuna")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+  });
+
+  it("matches the creator and combines search with the category filter", () => {
+    const items = [
+      ...itemsMock,
+      { ...itemsMock[0], id: "item-3", title: "Solaris", artist_creator: "Stanisław Lem" },
+    ];
+    render(<ItemList items={items} selectedCategory="music" onSelectCategory={vi.fn()} />);
+
+    const search = screen.getByRole("searchbox", { name: /Szukaj w kolekcji/i });
+    fireEvent.change(search, { target: { value: "stanislaw" } });
+    expect(screen.queryByText("Solaris")).not.toBeInTheDocument();
+    expect(screen.getByText(/Brak wyników dla „stanislaw”/)).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "beatles" } });
+    expect(screen.getByText("Abbey Road")).toBeInTheDocument();
+  });
+
   it("calls onSelectCategory when clicking a category tab", () => {
     const onSelectCategory = vi.fn();
     render(

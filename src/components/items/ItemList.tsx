@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Item } from "@/types/database";
 import { ItemCard } from "./ItemCard";
 
@@ -21,6 +22,15 @@ const CATEGORY_TABS = [
   { value: "other", label: "Inne" },
 ];
 
+/** Lowercase, without diacritics (incl. Polish "ł", which NFD does not decompose). */
+function normalizeForSearch(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/ł/g, "l");
+}
+
 export function ItemList({
   items,
   isLoading,
@@ -29,38 +39,52 @@ export function ItemList({
   onDeleteItem,
   fromShare,
 }: ItemListProps) {
-  const filteredItems =
-    selectedCategory === "all"
-      ? items
-      : items.filter((item) => item.category === selectedCategory);
+  const [searchQuery, setSearchQuery] = useState("");
+  const normalizedQuery = normalizeForSearch(searchQuery.trim());
+
+  const filteredItems = items.filter((item) => {
+    if (selectedCategory !== "all" && item.category !== selectedCategory) return false;
+    if (!normalizedQuery) return true;
+    return normalizeForSearch(`${item.title} ${item.artist_creator ?? ""}`).includes(normalizedQuery);
+  });
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      {/* Category filter tabs */}
-      <div
-        role="tablist"
-        aria-label="Kategorie"
-        className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-slate-950/90 backdrop-blur flex items-center gap-1.5 overflow-x-auto scrollbar-none"
-      >
-        {CATEGORY_TABS.map((tab) => {
-          const isActive = selectedCategory === tab.value;
-          return (
-            <button
-              key={tab.value}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => onSelectCategory(tab.value)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
-                isActive
-                  ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
-                  : "bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800"
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* Search + category filter tabs */}
+      <div className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-slate-950/90 backdrop-blur flex flex-col gap-2">
+        <input
+          type="search"
+          aria-label="Szukaj w kolekcji"
+          placeholder="Szukaj po tytule lub twórcy..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50"
+        />
+        <div
+          role="tablist"
+          aria-label="Kategorie"
+          className="flex items-center gap-1.5 overflow-x-auto scrollbar-none"
+        >
+          {CATEGORY_TABS.map((tab) => {
+            const isActive = selectedCategory === tab.value;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => onSelectCategory(tab.value)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                  isActive
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
+                    : "bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Item count */}
@@ -79,6 +103,13 @@ export function ItemList({
             />
           ))}
         </div>
+      ) : filteredItems.length === 0 && normalizedQuery ? (
+        <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-slate-800/80">
+          <p className="text-sm font-semibold text-slate-300">
+            Brak wyników dla „{searchQuery.trim()}”
+          </p>
+          <p className="text-xs text-slate-500 mt-1">Spróbuj innej frazy lub kategorii.</p>
+        </div>
       ) : filteredItems.length === 0 ? (
         <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-slate-800/80">
           <p className="text-sm font-semibold text-slate-300">Pusta kolekcja</p>
@@ -86,7 +117,7 @@ export function ItemList({
             Brak elementów w wybranej kategorii. Dodaj swój pierwszy przedmiot!
           </p>
         </div>
-      ) : selectedCategory === "all" ? (
+      ) : selectedCategory === "all" && !normalizedQuery ? (
         <div className="flex flex-col gap-6">
           {CATEGORY_TABS.slice(1).map((tab) => {
             const rowItems = filteredItems.filter((item) => item.category === tab.value);
