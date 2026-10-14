@@ -150,6 +150,17 @@ export async function mockBackend(page: Page, seed: MockItem[] = SEED_ITEMS): Pr
       if (userFilter?.startsWith("eq.")) rows = rows.filter((r) => r.user_id === userFilter.slice(3));
       const catFilter = url.searchParams.get("category");
       if (catFilter?.startsWith("eq.")) rows = rows.filter((r) => r.category === catFilter.slice(3));
+      const notUser = url.searchParams.get("user_id")?.startsWith("neq.")
+        ? url.searchParams.get("user_id")!.slice(4)
+        : null;
+      if (notUser) rows = rows.filter((r) => r.user_id !== notUser);
+      // searchCommunityItems: or=(title.ilike.%x%,artist_creator.ilike.%x%)
+      const term = url.searchParams.get("or")?.match(/ilike\.%([^%]*)%/)?.[1]?.toLowerCase();
+      if (term) {
+        rows = rows.filter((r) =>
+          `${r.title} ${r.artist_creator ?? ""}`.toLowerCase().includes(term)
+        );
+      }
       const idFilter = url.searchParams.get("id");
       if (idFilter?.startsWith("eq.")) rows = rows.filter((r) => r.id === idFilter.slice(3));
       if ((req.headers()["accept"] || "").includes("vnd.pgrst.object")) {

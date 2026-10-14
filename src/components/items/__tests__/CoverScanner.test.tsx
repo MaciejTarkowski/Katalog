@@ -21,8 +21,13 @@ vi.mock("@/lib/scan/ocr", () => ({
   recognizeCoverText: vi.fn(),
 }));
 
+vi.mock("@/lib/items/api", () => ({
+  searchCommunityItems: vi.fn().mockResolvedValue({ data: [], error: null }),
+}));
+
 import { detectBarcodeFromFile } from "@/lib/scan/barcode";
 import { recognizeCoverText } from "@/lib/scan/ocr";
+import { searchCommunityItems } from "@/lib/items/api";
 
 describe("CoverScanner", () => {
   beforeEach(() => {
@@ -274,5 +279,73 @@ describe("CoverScanner", () => {
     await waitFor(() => {
       expect(onError).toHaveBeenCalledWith("Nie znaleziono metadanych");
     });
+  });
+
+  it("opens the community search pop-up with the OCR text when nothing is found", async () => {
+    (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ query: "GRUBY" });
+    routeFetch(fail("Limit wyczerpany", { unavailable: true }), fail("Nie znaleziono metadanych"));
+
+    render(<CoverScanner onScanComplete={vi.fn()} onError={vi.fn()} />);
+    pickPhoto();
+
+    expect(await screen.findByRole("dialog", { name: /wpisach innych użytkowników/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Tytuł lub twórca/i)).toHaveValue("GRUBY");
+    expect(searchCommunityItems).toHaveBeenCalledWith("GRUBY");
+  });
+
+  it("fills the form from an item picked in the pop-up, keeping the photo as fallback cover", async () => {
+    const onScanComplete = vi.fn();
+    const picked = {
+      title: "Gruby Brzuch",
+      artist_creator: "Grubson",
+      category: "music",
+      subcategory: "CD",
+      cover_url: null,
+      metadata: { year: "2012" },
+    };
+    (searchCommunityItems as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: [picked],
+      error: null,
+    });
+    (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ query: "" });
+    routeFetch(fail("niedostępna", { unavailable: true }));
+
+    render(<CoverScanner onScanComplete={onScanComplete} onError={vi.fn()} />);
+    pickPhoto();
+
+    fireEvent.change(await screen.findByLabelText(/Tytuł lub twórca/i), {
+      target: { value: "Gruby" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Szukaj w kolekcjach/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Gruby Brzuch/i }));
+
+    expect(onScanComplete).toHaveBeenCalledWith({
+      ...picked,
+      previewUrl: "data:image/jpeg;base64,mockCompressedBase64",
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Popraw odczytany tekst/i)).not.toBeInTheDocument();
+  });
+
+  it("reopens the pop-up when the corrected catalog search also finds nothing", async () => {
+    (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ query: "" });
+    routeFetch(fail("niedostępna", { unavailable: true }), fail("Nie znaleziono metadanych"));
+
+    render(<CoverScanner onScanComplete={vi.fn()} onError={vi.fn()} />);
+    pickPhoto();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Zamknij/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Popraw odczytany tekst/i), {
+      target: { value: "Solaris" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Szukaj$/i }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Tytuł lub twórca/i)).toHaveValue("Solaris");
   });
 });

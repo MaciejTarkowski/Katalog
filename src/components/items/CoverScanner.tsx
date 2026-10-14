@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { compressImage } from "@/lib/image/compress";
 import { detectBarcodeFromFile } from "@/lib/scan/barcode";
 import { recognizeCoverText } from "@/lib/scan/ocr";
+import type { CommunityItem } from "@/types/database";
+import { CommunitySearchDialog } from "./CommunitySearchDialog";
 
 export interface ScannedItemData {
   title: string;
@@ -75,6 +77,11 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
   const [phase, setPhase] = useState<ScanPhase>("idle");
   const [statusText, setStatusText] = useState("");
   const [manualSearch, setManualSearch] = useState<{
+    query: string;
+    previewUrl?: string;
+  } | null>(null);
+  // Pop-up over other users' items, opened when recognition and catalogs find nothing.
+  const [communitySearch, setCommunitySearch] = useState<{
     query: string;
     previewUrl?: string;
   } | null>(null);
@@ -152,6 +159,7 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
         err instanceof Error ? err.message : "Wystąpił błąd podczas skanowania.";
       onError?.(message);
       setManualSearch({ query: ocrText, previewUrl });
+      setCommunitySearch({ query: ocrText, previewUrl });
     } finally {
       setPhase("idle");
       setStatusText("");
@@ -172,10 +180,17 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
       const message =
         err instanceof Error ? err.message : "Wystąpił błąd podczas wyszukiwania.";
       onError?.(message);
+      setCommunitySearch({ query, previewUrl: manualSearch.previewUrl });
     } finally {
       setPhase("idle");
       setStatusText("");
     }
+  };
+
+  const handleCommunitySelect = (item: CommunityItem) => {
+    finishWithData(item, communitySearch?.previewUrl);
+    setCommunitySearch(null);
+    setManualSearch(null);
   };
 
   return (
@@ -235,6 +250,14 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
             Szukaj
           </button>
         </div>
+      )}
+
+      {communitySearch && (
+        <CommunitySearchDialog
+          initialQuery={communitySearch.query}
+          onSelect={handleCommunitySelect}
+          onClose={() => setCommunitySearch(null)}
+        />
       )}
     </div>
   );
