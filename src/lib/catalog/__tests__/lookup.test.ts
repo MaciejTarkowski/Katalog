@@ -86,6 +86,41 @@ describe("lookupCatalogItem", () => {
     expect(item?.cover_url).toContain("coverartarchive.org");
   });
 
+  it("prefers a result whose title and artist match the query over a more complete one", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes("musicbrainz.org")) {
+          return jsonResponse({
+            releases: [
+              { id: "mbid-gb", title: "Gruby brzuch", "artist-credit": [{ name: "Grubson" }] },
+            ],
+          });
+        }
+        if (href.includes("coverartarchive.org") && init?.method === "HEAD") {
+          return { ok: false, status: 404, json: async () => ({}) };
+        }
+        if (href.includes("discogs.com")) {
+          return jsonResponse({
+            results: [
+              {
+                title: "Various - Brzuch Hits",
+                year: "2010",
+                cover_image: "https://i.discogs.com/other.jpg",
+                format: ["CD"],
+              },
+            ],
+          });
+        }
+        return jsonResponse({});
+      }
+    );
+
+    const item = await lookupCatalogItem({ query: "Gruby Brzuch Grubson", category: "music" });
+    expect(item?.title).toBe("Gruby brzuch");
+    expect(item?.artist_creator).toBe("Grubson");
+  });
+
   it("searches RAWG for games when category is game", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       async (url: string) => {

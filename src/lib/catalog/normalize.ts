@@ -55,3 +55,21 @@ export function cleanSearchQuery(text: string): string {
     .trim()
     .slice(0, 240);
 }
+
+/** Lowercase, no diacritics or punctuation — for comparing titles across sources. */
+export function normalizeForMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/ł/g, "l")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** True when one text contains the other after normalization. */
+export function textsOverlap(a: string, b: string): boolean {
+  const x = normalizeForMatch(a);
+  const y = normalizeForMatch(b);
+  return Boolean(x && y) && (x.includes(y) || y.includes(x));
+}

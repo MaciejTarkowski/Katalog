@@ -3,6 +3,7 @@ import {
   extractEanFromText,
   isIsbnPrefix,
   normalizeEan,
+  normalizeForMatch,
 } from "./normalize";
 import { lookupDiscogsByBarcode, searchDiscogs } from "./providers/discogs";
 import {
@@ -13,8 +14,16 @@ import { lookupOpenLibraryByIsbn, searchOpenLibrary } from "./providers/openLibr
 import { searchRawg } from "./providers/rawg";
 import { isCatalogCategory, type CatalogItem, type LookupInput } from "./types";
 
-function scoreItem(item: CatalogItem, categoryHint?: string): number {
+/** Whole-word containment, so "Brzuch" alone does not match the query "Gruby Brzuch". */
+function queryContains(query: string, part: string | null): boolean {
+  const p = normalizeForMatch(part ?? "");
+  return Boolean(p) && ` ${normalizeForMatch(query)} `.includes(` ${p} `);
+}
+
+function scoreItem(item: CatalogItem, categoryHint?: string, query?: string): number {
   let score = 0;
+  if (query && queryContains(query, item.title)) score += 4;
+  if (query && queryContains(query, item.artist_creator)) score += 2;
   if (item.title) score += 2;
   if (item.artist_creator) score += 1;
   if (item.cover_url) score += 2;
@@ -23,10 +32,16 @@ function scoreItem(item: CatalogItem, categoryHint?: string): number {
   return score;
 }
 
-function pickBest(items: CatalogItem[], categoryHint?: string): CatalogItem | null {
+function pickBest(
+  items: CatalogItem[],
+  categoryHint?: string,
+  query?: string
+): CatalogItem | null {
   const valid = items.filter((item) => item.title);
   if (!valid.length) return null;
-  return [...valid].sort((a, b) => scoreItem(b, categoryHint) - scoreItem(a, categoryHint))[0];
+  return [...valid].sort(
+    (a, b) => scoreItem(b, categoryHint, query) - scoreItem(a, categoryHint, query)
+  )[0];
 }
 
 async function settled(tasks: Array<Promise<CatalogItem | null>>): Promise<CatalogItem[]> {
@@ -64,7 +79,7 @@ async function lookupByQuery(query: string, categoryHint?: string): Promise<Cata
     return searchOpenLibrary(q, categoryHint);
   }
   if (categoryHint === "music") {
-    return pickBest(await settled([searchMusicBrainz(q), searchDiscogs(q)]), categoryHint);
+    return pickBest(await settled([searchMusicBrainz(q), searchDiscogs(q)]), categoryHint, q);
   }
   if (categoryHint === "game") {
     return searchRawg(q);
@@ -77,7 +92,8 @@ async function lookupByQuery(query: string, categoryHint?: string): Promise<Cata
       searchDiscogs(q),
       searchRawg(q),
     ]),
-    categoryHint
+    categoryHint,
+    q
   );
 }
 
