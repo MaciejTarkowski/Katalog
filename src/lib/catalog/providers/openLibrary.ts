@@ -1,4 +1,5 @@
 import { catalogFetch, readJson } from "../http";
+import { textsOverlap } from "../normalize";
 import type { CatalogItem } from "../types";
 
 interface OpenLibraryBookData {
@@ -37,7 +38,19 @@ function looksLikeComic(subjects: string[] | undefined): boolean {
   return /comic|komiks|manga|graphic novel|bande dessin/.test(blob);
 }
 
-function fromBookData(isbn: string, book: OpenLibraryBookData): CatalogItem | null {
+/** Without `default=false` Open Library serves a blank 1x1 image for unknown ISBNs. */
+async function isbnCoverUrl(isbn: string | undefined): Promise<string | null> {
+  if (!isbn) return null;
+  const url = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`;
+  try {
+    const res = await catalogFetch(url, { method: "HEAD" });
+    return res.ok ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fromBookData(isbn: string, book: OpenLibraryBookData): Promise<CatalogItem | null> {
   if (!book.title) return null;
   const subjects = book.subjects?.map((s) => s.name).filter(Boolean) as string[] | undefined;
   const comic = looksLikeComic(subjects);
@@ -48,7 +61,7 @@ function fromBookData(isbn: string, book: OpenLibraryBookData): CatalogItem | nu
     artist_creator: book.authors?.[0]?.name || null,
     category: comic ? "comic" : "book",
     subcategory: comic ? "Komiks" : null,
-    cover_url: book.cover?.large || book.cover?.medium || null,
+    cover_url: book.cover?.large || book.cover?.medium || (await isbnCoverUrl(isbn13)),
     metadata: {
       year: yearFromDate(book.publish_date),
       publisher: book.publishers?.[0]?.name,
@@ -59,15 +72,17 @@ function fromBookData(isbn: string, book: OpenLibraryBookData): CatalogItem | nu
   };
 }
 
-function fromSearchDoc(doc: OpenLibrarySearchDoc, categoryHint?: string): CatalogItem | null {
+async function fromSearchDoc(
+  doc: OpenLibrarySearchDoc,
+  coverId: number | undefined,
+  categoryHint?: string
+): Promise<CatalogItem | null> {
   if (!doc.title) return null;
   const comic = categoryHint === "comic" || looksLikeComic(doc.subject);
   const isbn = doc.isbn?.[0];
-  const cover = doc.cover_i
-    ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`
-    : isbn
-      ? `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`
-      : null;
+  const cover = coverId
+    ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
+    : await isbnCoverUrl(isbn);
 
   return {
     title: doc.title,
@@ -110,7 +125,12 @@ export async function searchOpenLibrary(
   const json = await readJson<OpenLibrarySearchResponse>(
     await catalogFetch(`https://openlibrary.org/search.json?${params.toString()}`)
   );
-  const doc = json?.docs?.[0];
+  const docs = json?.docs ?? [];
+  const doc = docs[0];
   if (!doc) return null;
-  return fromSearchDoc(doc, categoryHint);
+  // The top hit often lacks a cover while another edition of the same title has one.
+  const coverId =
+    doc.cover_i ??
+    docs.find((d) => d.cover_i && d.title && doc.title && textsOverlap(d.title, doc.title))?.cover_i;
+  return fromSearchDoc(doc, coverId, categoryHint);
 }

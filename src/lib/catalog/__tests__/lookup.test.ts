@@ -54,6 +54,62 @@ describe("lookupCatalogItem", () => {
     expect(toClientPayload(item!).metadata.source).toBe("openlibrary");
   });
 
+  it("takes the Open Library cover from another edition of the same title when the top hit has none", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      async (url: string) => {
+        if (String(url).includes("openlibrary.org/search.json")) {
+          return jsonResponse({
+            docs: [
+              { title: "Szepty spoza nicości", author_name: ["Remigiusz Mróz"] },
+              { title: "Inna książka", cover_i: 111 },
+              { title: "Szepty spoza nicosci", author_name: ["Remigiusz Mróz"], cover_i: 10865291 },
+            ],
+          });
+        }
+        return jsonResponse({}, false, 404);
+      }
+    );
+
+    const item = await lookupCatalogItem({ query: "Szepty spoza nicości Remigiusz Mróz", category: "book" });
+    expect(item?.title).toBe("Szepty spoza nicości");
+    expect(item?.cover_url).toBe("https://covers.openlibrary.org/b/id/10865291-L.jpg");
+  });
+
+  it("does not use the Open Library blank placeholder when no ISBN cover exists", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      async (url: string) => {
+        if (String(url).includes("openlibrary.org/search.json")) {
+          return jsonResponse({ docs: [{ title: "Bez okładki", isbn: ["9788300000000"] }] });
+        }
+        return jsonResponse({}, false, 404);
+      }
+    );
+
+    const item = await lookupCatalogItem({ query: "Bez okładki", category: "book" });
+    expect(item?.title).toBe("Bez okładki");
+    expect(item?.cover_url).toBeNull();
+  });
+
+  it("falls back to the ISBN cover when the book data has no cover", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes("openlibrary.org/api/books")) {
+          return jsonResponse({ "ISBN:9788382801234": { title: "Polska książka" } });
+        }
+        if (href.includes("covers.openlibrary.org/b/isbn/9788382801234") && init?.method === "HEAD") {
+          return { ok: true, status: 200, json: async () => ({}) };
+        }
+        return jsonResponse({}, false, 404);
+      }
+    );
+
+    const item = await lookupCatalogItem({ ean: "9788382801234", category: "book" });
+    expect(item?.cover_url).toBe(
+      "https://covers.openlibrary.org/b/isbn/9788382801234-L.jpg?default=false"
+    );
+  });
+
   it("looks up music by barcode via MusicBrainz", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       async (url: string, init?: RequestInit) => {
