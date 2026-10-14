@@ -56,6 +56,10 @@ async function lookupMetadata(payload: {
 export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
   const [phase, setPhase] = useState<ScanPhase>("idle");
   const [statusText, setStatusText] = useState("");
+  const [manualSearch, setManualSearch] = useState<{
+    query: string;
+    previewUrl?: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const busy = phase !== "idle";
 
@@ -77,8 +81,11 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setManualSearch(null);
     setPhase("compressing");
     setStatusText(PHASE_LABEL.compressing);
+    let previewUrl: string | undefined;
+    let ocrText = "";
 
     try {
       const compressed = await compressImage(file, {
@@ -86,6 +93,7 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
         maxHeight: 1200,
         quality: 0.8,
       });
+      previewUrl = compressed.dataUrl;
 
       setPhase("barcode");
       setStatusText(PHASE_LABEL.barcode);
@@ -98,22 +106,40 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
 
       setPhase("ocr");
       setStatusText(PHASE_LABEL.ocr);
-      const text = await recognizeCoverText(file);
-      if (!text) {
-        throw new Error("Nie udało się odczytać tekstu z okładki.");
+      ocrText = await recognizeCoverText(file);
+      if (!ocrText) {
+        throw new Error("Nie udało się odczytać tekstu z okładki. Wpisz tytuł ręcznie.");
       }
 
-      await handleLookup({ query: text }, compressed.dataUrl);
+      await handleLookup({ query: ocrText }, compressed.dataUrl);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Wystąpił błąd podczas skanowania.";
       onError?.(message);
+      setManualSearch({ query: ocrText, previewUrl });
     } finally {
       setPhase("idle");
       setStatusText("");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+    }
+  };
+
+  const handleManualSearch = async () => {
+    const query = manualSearch?.query.trim();
+    if (!manualSearch || !query) return;
+
+    try {
+      await handleLookup({ query }, manualSearch.previewUrl);
+      setManualSearch(null);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Wystąpił błąd podczas wyszukiwania.";
+      onError?.(message);
+    } finally {
+      setPhase("idle");
+      setStatusText("");
     }
   };
 
@@ -147,6 +173,34 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
           </>
         )}
       </button>
+
+      {manualSearch && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            aria-label="Popraw odczytany tekst i wyszukaj ponownie"
+            placeholder="Wpisz tytuł z okładki"
+            value={manualSearch.query}
+            disabled={busy}
+            onChange={(e) => setManualSearch({ ...manualSearch, query: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void handleManualSearch();
+              }
+            }}
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50"
+          />
+          <button
+            type="button"
+            disabled={busy || !manualSearch.query.trim()}
+            onClick={() => void handleManualSearch()}
+            className="px-3 py-2 rounded-xl bg-violet-600/30 hover:bg-violet-600/40 border border-violet-500/30 text-violet-300 hover:text-white font-medium text-xs transition-all disabled:opacity-50"
+          >
+            Szukaj
+          </button>
+        </div>
+      )}
     </div>
   );
 }

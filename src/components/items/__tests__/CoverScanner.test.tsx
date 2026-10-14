@@ -121,6 +121,70 @@ describe("CoverScanner", () => {
   });
 
 
+  it("shows OCR text for manual correction when lookup finds nothing", async () => {
+    const onScanComplete = vi.fn();
+    (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue("MAN INSOMNIAC");
+    (global.fetch as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: "Nie znaleziono metadanych w darmowych bazach katalogowych." }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            title: "Marvel's Spider-Man",
+            artist_creator: "Insomniac Games",
+            category: "game",
+            subcategory: "PlayStation 4",
+            cover_url: null,
+            metadata: {},
+          },
+        }),
+      });
+
+    render(<CoverScanner onScanComplete={onScanComplete} />);
+    fireEvent.change(screen.getByTestId("cover-scan-file-input"), {
+      target: { files: [new File(["dummy"], "cover.jpg", { type: "image/jpeg" })] },
+    });
+
+    const input = await screen.findByLabelText(/Popraw odczytany tekst/i);
+    expect(input).toHaveValue("MAN INSOMNIAC");
+
+    fireEvent.change(input, { target: { value: "Spider-Man" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Szukaj$/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith("/api/catalog/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "Spider-Man" }),
+      });
+      expect(onScanComplete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Marvel's Spider-Man",
+          previewUrl: "data:image/jpeg;base64,mockCompressedBase64",
+        })
+      );
+    });
+    expect(screen.queryByLabelText(/Popraw odczytany tekst/i)).not.toBeInTheDocument();
+  });
+
+  it("shows an empty manual search field when OCR reads nothing", async () => {
+    (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (recognizeCoverText as unknown as ReturnType<typeof vi.fn>).mockResolvedValue("");
+
+    render(<CoverScanner onScanComplete={vi.fn()} onError={vi.fn()} />);
+    fireEvent.change(screen.getByTestId("cover-scan-file-input"), {
+      target: { files: [new File(["dummy"], "cover.jpg", { type: "image/jpeg" })] },
+    });
+
+    expect(await screen.findByLabelText(/Popraw odczytany tekst/i)).toHaveValue("");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("triggers onError when lookup fails", async () => {
     const onError = vi.fn();
     (detectBarcodeFromFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
