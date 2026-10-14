@@ -188,6 +188,65 @@ describe("lookupCatalogItem", () => {
     expect(item?.cover_url).toContain("coverartarchive.org");
   });
 
+  it("retries MusicBrainz once when it is rate limited (503)", async () => {
+    vi.useFakeTimers();
+    let musicBrainzCalls = 0;
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes("musicbrainz.org")) {
+          musicBrainzCalls += 1;
+          if (musicBrainzCalls === 1) return jsonResponse({}, false, 503);
+          return jsonResponse({
+            releases: [{ id: "mbid-gb", title: "Gruby Brzuch", "artist-credit": [{ name: "Grubson" }] }],
+          });
+        }
+        if (href.includes("coverartarchive.org") && init?.method === "HEAD") {
+          return { ok: true, status: 200, json: async () => ({}) };
+        }
+        return jsonResponse({ results: [] });
+      }
+    );
+
+    const pending = lookupCatalogItem({ query: "Gruby Brzuch", category: "music" });
+    await vi.runAllTimersAsync();
+    const item = await pending;
+    vi.useRealTimers();
+
+    expect(musicBrainzCalls).toBe(2);
+    expect(item?.cover_url).toContain("coverartarchive.org/release/mbid-gb");
+  });
+
+  it("uses the release-group cover when the release has no own artwork", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes("musicbrainz.org")) {
+          return jsonResponse({
+            releases: [
+              {
+                id: "mbid-reissue",
+                title: "Gruby Brzuch",
+                "artist-credit": [{ name: "Grubson" }],
+                "release-group": { id: "rg-gb", "primary-type": "Album" },
+              },
+            ],
+          });
+        }
+        if (href.includes("coverartarchive.org/release/") && init?.method === "HEAD") {
+          return { ok: false, status: 404, json: async () => ({}) };
+        }
+        if (href.includes("coverartarchive.org/release-group/rg-gb") && init?.method === "HEAD") {
+          return { ok: true, status: 200, json: async () => ({}) };
+        }
+        return jsonResponse({ results: [] });
+      }
+    );
+
+    const item = await lookupCatalogItem({ query: "Gruby Brzuch", category: "music" });
+    expect(item?.cover_url).toBe("https://coverartarchive.org/release-group/rg-gb/front-500");
+  });
+
   it("does not search MusicBrainz for free text as a single quoted phrase", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse({ results: [], releases: [] })
