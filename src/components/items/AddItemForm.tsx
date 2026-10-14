@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ItemInsert } from "@/types/database";
-import { AiScanButton, AiScannedData } from "./AiScanButton";
+import { CoverScanner, ScannedItemData } from "./CoverScanner";
 import { uploadCoverImage } from "@/lib/storage/upload";
 
 interface AddItemFormProps {
@@ -29,14 +29,18 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [aiSuccessMsg, setAiSuccessMsg] = useState<string | null>(null);
 
-  const handleScanComplete = (data: AiScannedData) => {
+  const handleScanComplete = (data: ScannedItemData) => {
     if (data.title) setTitle(data.title);
     if (data.artist_creator) setArtistCreator(data.artist_creator);
     if (data.category) setCategory(data.category);
     if (data.subcategory) setSubcategory(data.subcategory);
     if (data.metadata) setMetadata(data.metadata);
-    if (data.previewUrl && !coverUrl) setCoverUrl(data.previewUrl);
-    setAiSuccessMsg("Pomyślnie rozpoznano dane przez Gemini AI!");
+    if (data.cover_url) {
+      setCoverUrl(data.cover_url);
+    } else if (data.previewUrl && !coverUrl) {
+      setCoverUrl(data.previewUrl);
+    }
+    setAiSuccessMsg("Pomyślnie dociągnięto dane z darmowych baz katalogowych!");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,8 +107,7 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
         )}
       </div>
 
-      {/* Gemini AI Auto-Scan */}
-      <AiScanButton
+      <CoverScanner
         onScanComplete={handleScanComplete}
         onError={(err) => setErrorMsg(err)}
       />

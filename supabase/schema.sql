@@ -26,7 +26,7 @@ COMMENT ON COLUMN public.items.artist_creator IS 'Twórca/Autor/Wykonawca/Studio
 COMMENT ON COLUMN public.items.category IS 'Kategoria główna (np. book, music, game, comic)';
 COMMENT ON COLUMN public.items.subcategory IS 'Podkategoria (np. vinyl, cd, rpg, manga)';
 COMMENT ON COLUMN public.items.cover_url IS 'Adres URL okładki w Supabase Storage lub zewnętrznym CDN';
-COMMENT ON COLUMN public.items.metadata IS 'Elastyczne metadane specyficzne dla danej kategorii (np. ISBN, rok wydania, wydawca, platforma) zasilane przez Gemini AI';
+COMMENT ON COLUMN public.items.metadata IS 'Elastyczne metadane specyficzne dla danej kategorii (np. ISBN, rok wydania, wydawca, platforma) zasilane z Open Library, MusicBrainz/Discogs i RAWG';
 
 -- 3. Indeksy wydajnościowe dla zapytań mobilnych
 CREATE INDEX IF NOT EXISTS idx_items_user_id ON public.items (user_id);

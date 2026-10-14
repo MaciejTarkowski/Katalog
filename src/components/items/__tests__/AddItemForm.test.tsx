@@ -66,12 +66,11 @@ describe("AddItemForm", () => {
     });
   });
 
-  it("renders AiScanButton and updates form fields on AI scan", () => {
+  it("renders CoverScanner actions on the add-item form", () => {
     render(<AddItemForm onSubmit={vi.fn()} />);
 
-    expect(
-      screen.getByRole("button", { name: /Zeskanuj okładkę aparatem \(Gemini AI\)/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Skanuj kod kreskowy/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Zdjęcie okładki \(OCR\)/i })).toBeInTheDocument();
   });
 
   it("uploads dataUrl cover image to storage on submit", async () => {
