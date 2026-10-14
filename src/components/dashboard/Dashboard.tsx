@@ -5,6 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { Item, ItemInsert } from "@/types/database";
 import { fetchItems, addItem, deleteItem } from "@/lib/items/api";
+import { fetchProfile, updateDisplayName, DISPLAY_NAME_MAX_LENGTH } from "@/lib/profiles/api";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { ItemList } from "@/components/items/ItemList";
 import { AddItemForm } from "@/components/items/AddItemForm";
@@ -17,6 +18,8 @@ export function Dashboard() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [displayNameStatus, setDisplayNameStatus] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -59,6 +62,24 @@ export function Dashboard() {
       subscription.unsubscribe();
     };
   }, [loadItems, supabase]);
+
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    fetchProfile(userId).then(({ data }) => {
+      if (!cancelled) setDisplayName(data?.display_name || "");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const handleSaveDisplayName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { success, error } = await updateDisplayName(displayName);
+    setDisplayNameStatus(success ? "Zapisano" : error);
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -131,6 +152,42 @@ export function Dashboard() {
             Wyloguj
           </button>
         </div>
+
+        {/* Display name shown on the shared collection */}
+        <form
+          onSubmit={handleSaveDisplayName}
+          className="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-slate-900 border border-slate-800"
+        >
+          <label htmlFor="display-name" className="text-[11px] text-slate-400">
+            Nazwa wyświetlana
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="display-name"
+              type="text"
+              maxLength={DISPLAY_NAME_MAX_LENGTH}
+              value={displayName}
+              onChange={(e) => {
+                setDisplayName(e.target.value);
+                setDisplayNameStatus(null);
+              }}
+              placeholder="Widoczna w udostępnionej kolekcji"
+              className="flex-1 min-w-0 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              aria-label="Zapisz nazwę"
+              className="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 transition-colors"
+            >
+              Zapisz
+            </button>
+          </div>
+          {displayNameStatus && (
+            <p role="status" className="text-[11px] text-slate-400">
+              {displayNameStatus}
+            </p>
+          )}
+        </form>
 
         {/* Action buttons: Dodaj + Udostępnij */}
         <div className="flex flex-col gap-2.5">

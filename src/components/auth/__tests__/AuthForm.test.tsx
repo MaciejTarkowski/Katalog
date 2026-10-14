@@ -76,4 +76,24 @@ describe("AuthForm", () => {
       expect(screen.getByText("Nieprawidłowe dane")).toBeInTheDocument();
     });
   });
+
+  it("sends the display name with sign up", async () => {
+    mockSignUp.mockResolvedValue({ error: null, data: { session: null } });
+    render(<AuthForm />);
+    expect(screen.queryByLabelText("Nazwa wyświetlana")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Nie masz konta? Zarejestruj się"));
+    fireEvent.change(screen.getByLabelText("Nazwa wyświetlana"), { target: { value: " Maciek " } });
+    fireEvent.change(screen.getByLabelText("Adres e-mail"), { target: { value: "m@example.com" } });
+    fireEvent.change(screen.getByLabelText("Hasło"), { target: { value: "password123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Zarejestruj się" }));
+
+    await waitFor(() => {
+      expect(mockSignUp).toHaveBeenCalledWith({
+        email: "m@example.com",
+        password: "password123",
+        options: { data: { display_name: "Maciek" } },
+      });
+    });
+  });
 });

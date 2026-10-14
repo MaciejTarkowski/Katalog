@@ -9,6 +9,7 @@ interface AuthFormProps {
 
 export function AuthForm({ onSuccess }: AuthFormProps) {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,6 +29,8 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
         const { error, data } = await supabase.auth.signUp({
           email,
           password,
+          // Trigger `handle_new_user` (supabase/schema.sql) creates the profile from this.
+          options: { data: { display_name: displayName.trim() } },
         });
 
         if (error) {
@@ -73,6 +76,24 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {isSignUp && (
+          <div>
+            <label htmlFor="auth-display-name" className="block text-xs font-medium text-slate-300 mb-1">
+              Nazwa wyświetlana
+            </label>
+            <input
+              id="auth-display-name"
+              type="text"
+              required
+              maxLength={50}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Jak mają Cię widzieć inni"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
+          </div>
+        )}
+
         <div>
           <label htmlFor="auth-email" className="block text-xs font-medium text-slate-300 mb-1">
             Adres e-mail

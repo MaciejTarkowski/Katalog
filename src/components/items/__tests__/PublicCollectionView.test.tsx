@@ -9,9 +9,16 @@ vi.mock("@/lib/items/api", () => ({
     mockFetchPublicItems(userId, category),
 }));
 
+const mockFetchProfile = vi.fn();
+
+vi.mock("@/lib/profiles/api", () => ({
+  fetchProfile: (userId: string) => mockFetchProfile(userId),
+}));
+
 describe("PublicCollectionView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetchProfile.mockResolvedValue({ data: null, error: null });
   });
 
   it("fetches and renders public items without delete buttons", async () => {
@@ -81,5 +88,27 @@ describe("PublicCollectionView", () => {
     await waitFor(() => {
       expect(screen.getByText("Kolekcja nie została znaleziona")).toBeInTheDocument();
     });
+  });
+
+  it("shows the name of the user who shared the collection", async () => {
+    mockFetchPublicItems.mockResolvedValue({ data: [], error: null });
+    mockFetchProfile.mockResolvedValue({
+      data: { id: "user-public", display_name: "Maciek" },
+      error: null,
+    });
+
+    render(<PublicCollectionView userId="user-public" />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Kolekcja użytkownika Maciek" })
+    ).toBeInTheDocument();
+    expect(mockFetchProfile).toHaveBeenCalledWith("user-public");
+  });
+
+  it("falls back to a generic title when the user has no display name", async () => {
+    mockFetchPublicItems.mockResolvedValue({ data: [], error: null });
+    render(<PublicCollectionView userId="user-public" />);
+    await waitFor(() => expect(mockFetchProfile).toHaveBeenCalled());
+    expect(screen.getByRole("heading", { name: "Kolekcja użytkownika" })).toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Item } from "@/types/database";
 import { fetchPublicItems } from "@/lib/items/api";
+import { fetchProfile } from "@/lib/profiles/api";
 import { ItemList } from "./ItemList";
 
 interface PublicCollectionViewProps {
@@ -16,6 +17,7 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [copied, setCopied] = useState(false);
+  const [ownerName, setOwnerName] = useState<string | null>(null);
 
   const loadPublicItems = useCallback(async () => {
     setLoading(true);
@@ -32,6 +34,16 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
   useEffect(() => {
     loadPublicItems();
   }, [loadPublicItems]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchProfile(userId).then(({ data }) => {
+      if (!cancelled) setOwnerName(data?.display_name || null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const handleCopyLink = async () => {
     try {
@@ -63,7 +75,9 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
         </div>
 
         <div>
-          <h2 className="text-lg font-bold text-white tracking-tight">Kolekcja użytkownika</h2>
+          <h2 className="text-lg font-bold text-white tracking-tight">
+            {ownerName ? `Kolekcja użytkownika ${ownerName}` : "Kolekcja użytkownika"}
+          </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Tryb tylko do odczytu. Zbiory i eksponaty zgromadzone w Katalogu.
           </p>

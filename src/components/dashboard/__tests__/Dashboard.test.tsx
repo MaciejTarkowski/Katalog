@@ -44,9 +44,19 @@ vi.mock("@/lib/items/api", () => ({
   deleteItem: vi.fn().mockResolvedValue({ success: true, error: null }),
 }));
 
+const mockFetchProfile = vi.fn();
+const mockUpdateDisplayName = vi.fn();
+
+vi.mock("@/lib/profiles/api", () => ({
+  DISPLAY_NAME_MAX_LENGTH: 50,
+  fetchProfile: (userId: string) => mockFetchProfile(userId),
+  updateDisplayName: (name: string) => mockUpdateDisplayName(name),
+}));
+
 describe("Dashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetchProfile.mockResolvedValue({ data: null, error: null });
   });
 
   it("renders auth form when user is not authenticated", async () => {
@@ -127,5 +137,44 @@ describe("Dashboard", () => {
       expect.stringContaining("/share/user-test-uuid")
     );
     expect(screen.getByText("✓ Skopiowano link do schowka!")).toBeInTheDocument();
+  });
+
+  it("shows and saves the display name used in the shared collection", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1", email: "kolekcjoner@example.com" } },
+      error: null,
+    });
+    mockFetchProfile.mockResolvedValue({ data: { id: "user-1", display_name: "Maciek" }, error: null });
+    mockUpdateDisplayName.mockResolvedValue({ success: true, error: null });
+
+    render(<Dashboard />);
+
+    const input = await screen.findByLabelText("Nazwa wyświetlana");
+    await waitFor(() => expect(input).toHaveValue("Maciek"));
+    expect(mockFetchProfile).toHaveBeenCalledWith("user-1");
+
+    fireEvent.change(input, { target: { value: "Maciej T." } });
+    fireEvent.click(screen.getByRole("button", { name: "Zapisz nazwę" }));
+
+    await waitFor(() => {
+      expect(mockUpdateDisplayName).toHaveBeenCalledWith("Maciej T.");
+      expect(screen.getByText("Zapisano")).toBeInTheDocument();
+    });
+  });
+
+  it("shows an error when saving the display name fails", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1", email: "kolekcjoner@example.com" } },
+      error: null,
+    });
+    mockUpdateDisplayName.mockResolvedValue({
+      success: false,
+      error: "Nazwa musi mieć od 1 do 50 znaków.",
+    });
+
+    render(<Dashboard />);
+    fireEvent.click(await screen.findByRole("button", { name: "Zapisz nazwę" }));
+
+    expect(await screen.findByText("Nazwa musi mieć od 1 do 50 znaków.")).toBeInTheDocument();
   });
 });

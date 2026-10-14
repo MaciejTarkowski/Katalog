@@ -1,4 +1,13 @@
-import { test, expect, mockBackend, login, SEED_ITEMS, USER_ID, makeItem } from "./fixtures";
+import {
+  test,
+  expect,
+  mockBackend,
+  login,
+  SEED_ITEMS,
+  USER_ID,
+  USER_DISPLAY_NAME,
+  makeItem,
+} from "./fixtures";
 
 test.describe("5. Link udostępniania", () => {
   test("przycisk udostępniania kopiuje link /share/<userId>", async ({ page, context, baseURL }) => {
@@ -24,6 +33,9 @@ test.describe("5. Link udostępniania", () => {
       await expect(page.getByTestId(`item-card-${item.id}`)).toBeVisible();
     }
     await expect(page.getByText("Cudzy element")).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: `Kolekcja użytkownika ${USER_DISPLAY_NAME}` })
+    ).toBeVisible();
 
     const tabs = page.getByRole("tablist", { name: "Kategorie" });
     await tabs.getByRole("tab", { name: "Muzyka" }).click();

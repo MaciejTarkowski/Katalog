@@ -52,7 +52,7 @@ No AI/LLM call in the code — `GEMINI_API_KEY` in `.env.example` is a leftover.
 Supabase:
 - `lib/supabase/client.ts` (browser) / `server.ts` (cookies); both fall back to placeholder credentials.
 - `lib/items/api.ts` runs client-side and returns `{ data, error }` instead of throwing.
-- `supabase/schema.sql` is the source of truth: one `items` table (`metadata` JSONB), RLS with public read (used by `/share/[userId]`) and owner-only writes, `covers` bucket expecting `<userId>/` folders. `src/types/database.ts` mirrors it by hand.
+- `supabase/schema.sql` is the source of truth: `items` table (`metadata` JSONB) and `profiles` (`display_name`, created on signup by the `handle_new_user` trigger), both with public read (used by `/share/[userId]`) and owner-only writes, `covers` bucket expecting `<userId>/` folders. `src/types/database.ts` mirrors it by hand.
 
 PWA: `public/manifest.json` + `public/sw.js`, registered by `PwaRegister.tsx` in production only.
 

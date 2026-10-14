@@ -3,6 +3,7 @@ import { test as base, expect, type Page, type Request } from "@playwright/test"
 export const SUPABASE = "http://supabase.test";
 export const USER_ID = "11111111-1111-1111-1111-111111111111";
 export const USER_EMAIL = "e2e@katalog.test";
+export const USER_DISPLAY_NAME = "Kolekcjoner E2E";
 
 export interface MockItem {
   id: string;
@@ -123,6 +124,19 @@ export async function mockBackend(page: Page, seed: MockItem[] = SEED_ITEMS): Pr
     backend.writes.push(route.request());
     const key = url.pathname.replace("/storage/v1/object/", "");
     await route.fulfill({ json: { Key: key, Id: "e2e-file" } });
+  });
+
+  await page.route(`${SUPABASE}/rest/v1/profiles**`, async (route) => {
+    const req = route.request();
+    if (req.method() === "GET") {
+      const id = new URL(req.url()).searchParams.get("id")?.replace(/^eq\./, "");
+      const profile = id === USER_ID ? { id: USER_ID, display_name: USER_DISPLAY_NAME } : null;
+      return profile
+        ? route.fulfill({ json: profile })
+        : route.fulfill({ status: 406, json: { code: "PGRST116", message: "0 rows" } });
+    }
+    backend.writes.push(req);
+    return route.fulfill({ status: 201, json: [] });
   });
 
   await page.route(`${SUPABASE}/rest/v1/items**`, async (route) => {

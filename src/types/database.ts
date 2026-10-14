@@ -18,3 +18,9 @@ export type ItemInsert = Omit<Item, "id" | "created_at" | "updated_at"> & {
 };
 
 export type ItemUpdate = Partial<Omit<Item, "id" | "user_id" | "created_at">>;
+
+/** Public profile (table `profiles`) — the name shown on a shared collection. */
+export interface Profile {
+  id: string;
+  display_name: string | null;
+}

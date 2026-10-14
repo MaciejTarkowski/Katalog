@@ -92,3 +92,56 @@ CREATE POLICY "Authenticated users can upload covers"
 CREATE POLICY "Users can delete own covers"
     ON storage.objects FOR DELETE
     USING (bucket_id = 'covers' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- 7. Profile użytkowników (nazwa wyświetlana w udostępnionej kolekcji)
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    display_name TEXT CHECK (char_length(display_name) BETWEEN 1 AND 50),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+COMMENT ON TABLE public.profiles IS 'Publiczny profil użytkownika - nazwa widoczna w /share/<userId>';
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view profiles"
+    ON public.profiles
+    FOR SELECT
+    USING (true);
+
+CREATE POLICY "Users can insert own profile"
+    ON public.profiles
+    FOR INSERT
+    WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile"
+    ON public.profiles
+    FOR UPDATE
+    USING (auth.uid() = id)
+    WITH CHECK (auth.uid() = id);
+
+CREATE OR REPLACE TRIGGER set_profiles_updated_at
+    BEFORE UPDATE ON public.profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_updated_at();
+
+-- Profil zakładany przy rejestracji z nazwy podanej w formularzu (options.data.display_name)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    INSERT INTO public.profiles (id, display_name)
+    VALUES (NEW.id, NULLIF(left(trim(NEW.raw_user_meta_data ->> 'display_name'), 50), ''))
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_new_user();
