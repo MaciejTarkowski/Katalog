@@ -21,7 +21,7 @@ vi.mock("@/lib/scan/ocr", () => ({
   recognizeCoverText: vi.fn(),
 }));
 
-import { detectBarcodeFromFile, startLiveBarcodeScan } from "@/lib/scan/barcode";
+import { detectBarcodeFromFile } from "@/lib/scan/barcode";
 import { recognizeCoverText } from "@/lib/scan/ocr";
 
 describe("CoverScanner", () => {
@@ -30,10 +30,18 @@ describe("CoverScanner", () => {
     global.fetch = vi.fn();
   });
 
-  it("renders barcode and OCR actions", () => {
+  it("renders a single scan button", () => {
     render(<CoverScanner onScanComplete={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /Skanuj kod kreskowy/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Zdjęcie okładki \(OCR\)/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /Zeskanuj okładkę/i })).toBeInTheDocument();
+  });
+
+  it("opens the photo picker from the scan button", () => {
+    render(<CoverScanner onScanComplete={vi.fn()} />);
+    const input = screen.getByTestId("cover-scan-file-input") as HTMLInputElement;
+    const click = vi.spyOn(input, "click");
+    fireEvent.click(screen.getByRole("button", { name: /Zeskanuj okładkę/i }));
+    expect(click).toHaveBeenCalled();
   });
 
   it("looks up metadata from a barcode found on a photo", async () => {
@@ -112,21 +120,6 @@ describe("CoverScanner", () => {
     });
   });
 
-  it("starts live barcode scanning", async () => {
-    const stop = vi.fn().mockResolvedValue(undefined);
-    (startLiveBarcodeScan as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(stop);
-
-    render(<CoverScanner onScanComplete={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: /Skanuj kod kreskowy/i }));
-
-    await waitFor(() => {
-      expect(startLiveBarcodeScan).toHaveBeenCalledWith(
-        "katalog-live-barcode",
-        expect.any(Function)
-      );
-      expect(screen.getByRole("button", { name: /Anuluj skanowanie/i })).toBeInTheDocument();
-    });
-  });
 
   it("triggers onError when lookup fails", async () => {
     const onError = vi.fn();

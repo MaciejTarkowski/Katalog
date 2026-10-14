@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { compressImage } from "@/lib/image/compress";
-import { detectBarcodeFromFile, startLiveBarcodeScan } from "@/lib/scan/barcode";
+import { detectBarcodeFromFile } from "@/lib/scan/barcode";
 import { recognizeCoverText } from "@/lib/scan/ocr";
 
 export interface ScannedItemData {
@@ -25,13 +25,12 @@ interface CoverScannerProps {
 
 type ScanPhase =
   | "idle"
-  | "camera"
   | "compressing"
   | "barcode"
   | "ocr"
   | "lookup";
 
-const PHASE_LABEL: Record<Exclude<ScanPhase, "idle" | "camera">, string> = {
+const PHASE_LABEL: Record<Exclude<ScanPhase, "idle">, string> = {
   compressing: "Kompresja zdjęcia...",
   barcode: "Szukam kodu kreskowego...",
   ocr: "Rozpoznawanie tekstu (OCR)...",
@@ -58,23 +57,7 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
   const [phase, setPhase] = useState<ScanPhase>("idle");
   const [statusText, setStatusText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const stopCameraRef = useRef<(() => Promise<void>) | null>(null);
   const busy = phase !== "idle";
-
-  const stopCamera = async () => {
-    const stop = stopCameraRef.current;
-    stopCameraRef.current = null;
-    if (stop) {
-      await stop();
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      void stopCamera();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const finishWithData = (data: ScannedItemData, previewUrl?: string) => {
     onScanComplete({
@@ -88,42 +71,6 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
     setStatusText(PHASE_LABEL.lookup);
     const data = await lookupMetadata(payload);
     finishWithData(data, previewUrl);
-  };
-
-  const handleStartCamera = async () => {
-    setPhase("camera");
-    setStatusText("Skieruj kamerę na kod kreskowy...");
-    try {
-      const stop = await startLiveBarcodeScan("katalog-live-barcode", async (code) => {
-        try {
-          await stop();
-          stopCameraRef.current = null;
-          await handleLookup({ ean: code });
-        } catch (err: unknown) {
-          const message =
-            err instanceof Error ? err.message : "Nie udało się odczytać kodu kreskowego.";
-          onError?.(message);
-        } finally {
-          setPhase("idle");
-          setStatusText("");
-        }
-      });
-      stopCameraRef.current = stop;
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Nie udało się uruchomić kamery. Sprawdź uprawnienia.";
-      onError?.(message);
-      setPhase("idle");
-      setStatusText("");
-    }
-  };
-
-  const handleCancelCamera = async () => {
-    await stopCamera();
-    setPhase("idle");
-    setStatusText("");
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,57 +123,30 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileChange}
         className="hidden"
         data-testid="cover-scan-file-input"
         disabled={busy}
       />
 
-      {phase === "camera" ? (
-        <div className="rounded-xl border border-cyan-500/30 bg-slate-950 overflow-hidden">
-          <div id="katalog-live-barcode" className="w-full min-h-48 bg-black" />
-          <p className="px-3 py-2 text-[11px] text-cyan-300">{statusText}</p>
-          <button
-            type="button"
-            onClick={handleCancelCamera}
-            className="w-full py-2 text-xs text-slate-300 hover:text-white border-t border-slate-800"
-          >
-            Anuluj skanowanie
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={handleStartCamera}
-            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600/30 to-sky-600/30 hover:from-cyan-600/40 hover:to-sky-600/40 border border-cyan-500/30 text-cyan-300 hover:text-white font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm disabled:opacity-50"
-          >
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => fileInputRef.current?.click()}
+        className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-violet-600/30 to-indigo-600/30 hover:from-violet-600/40 hover:to-indigo-600/40 border border-violet-500/30 text-violet-300 hover:text-white font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm disabled:opacity-50"
+      >
+        {busy ? (
+          <>
+            <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+            <span>{statusText}</span>
+          </>
+        ) : (
+          <>
             <span className="text-sm">📷</span>
-            <span>Skanuj kod kreskowy</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-violet-600/30 to-indigo-600/30 hover:from-violet-600/40 hover:to-indigo-600/40 border border-violet-500/30 text-violet-300 hover:text-white font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm disabled:opacity-50"
-          >
-            {busy ? (
-              <>
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
-                <span>{statusText}</span>
-              </>
-            ) : (
-              <>
-                <span className="text-sm">🔤</span>
-                <span>Zdjęcie okładki (OCR)</span>
-              </>
-            )}
-          </button>
-        </div>
-      )}
+            <span>Zeskanuj okładkę</span>
+          </>
+        )}
+      </button>
     </div>
   );
 }

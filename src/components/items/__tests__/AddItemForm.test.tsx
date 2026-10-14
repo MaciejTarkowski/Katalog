@@ -66,11 +66,11 @@ describe("AddItemForm", () => {
     });
   });
 
-  it("renders CoverScanner actions on the add-item form", () => {
+  it("renders a single CoverScanner button on the add-item form", () => {
     render(<AddItemForm onSubmit={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: /Skanuj kod kreskowy/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Zdjęcie okładki \(OCR\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Zeskanuj okładkę/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Skanuj kod kreskowy/i })).not.toBeInTheDocument();
   });
 
   it("uploads dataUrl cover image to storage on submit", async () => {
