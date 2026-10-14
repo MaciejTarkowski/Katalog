@@ -1,0 +1,7 @@
+{
+  "model": "sonnet",
+  "permissions": {
+    "allow": ["Bash(npm test*)", "Bash(npm run test*)", "Bash(npx playwright test*)", "Bash(git add*)", "Bash(git commit*)"],
+    "deny": ["Read(./.env*)", "Read(./node_modules/**)", "Read(./dist/**)", "Read(./build/**)"]
+  }
+}
