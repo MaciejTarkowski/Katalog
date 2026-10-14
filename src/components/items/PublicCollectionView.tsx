@@ -44,9 +44,9 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-md">
+    <div className="flex flex-col gap-6 w-full">
       {/* Header card */}
-      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col gap-3">
+      <div className="w-full max-w-md self-center p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
@@ -87,7 +87,7 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
       )}
 
       {/* CTA Footer */}
-      <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 text-center flex flex-col gap-2">
+      <div className="w-full max-w-md self-center p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 text-center flex flex-col gap-2">
         <p className="text-xs text-slate-400">Podoba Ci się ten zbiór?</p>
         <Link
           href="/"

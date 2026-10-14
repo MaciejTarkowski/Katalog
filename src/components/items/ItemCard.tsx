@@ -28,11 +28,8 @@ export function ItemCard({ item, onDelete }: ItemCardProps) {
   const categoryColor = CATEGORY_COLORS[item.category] || CATEGORY_COLORS.other;
 
   return (
-    <article
-      data-testid={`item-card-${item.id}`}
-      className="flex gap-4 p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all shadow-sm"
-    >
-      <div className="relative w-16 h-20 rounded-xl overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center border border-slate-700/50">
+    <article data-testid={`item-card-${item.id}`} className="group flex flex-col gap-1.5 min-w-0">
+      <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-800 group-hover:border-slate-600 shadow-md transition-all group-hover:scale-[1.03]">
         {item.cover_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -41,42 +38,34 @@ export function ItemCard({ item, onDelete }: ItemCardProps) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <span className="text-xl font-bold text-slate-600">
+          <span className="absolute inset-0 flex items-center justify-center text-4xl font-bold text-slate-600">
             {item.title.charAt(0).toUpperCase()}
           </span>
         )}
+        <span
+          className={`absolute top-1.5 left-1.5 text-[10px] px-2 py-0.5 rounded-full font-semibold border backdrop-blur ${categoryColor}`}
+        >
+          {categoryLabel}
+        </span>
       </div>
 
-      <div className="flex-1 min-w-0 flex flex-col justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span
-              className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${categoryColor}`}
-            >
-              {categoryLabel}
-            </span>
-            {item.subcategory && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-medium">
-                {item.subcategory}
-              </span>
-            )}
-          </div>
-          <h3 className="text-sm font-bold text-white truncate">{item.title}</h3>
-          {item.artist_creator && (
-            <p className="text-xs text-slate-400 truncate">{item.artist_creator}</p>
+      <div className="min-w-0 px-0.5">
+        <h3 className="text-xs font-semibold text-white truncate">{item.title}</h3>
+        {item.artist_creator && (
+          <p className="text-[11px] text-slate-400 truncate">{item.artist_creator}</p>
+        )}
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          {item.subcategory ? (
+            <span className="text-[10px] text-slate-500 truncate">{item.subcategory}</span>
+          ) : (
+            <span />
           )}
-        </div>
-
-        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80">
-          <time className="text-[10px] text-slate-500">
-            {new Date(item.created_at).toLocaleDateString("pl-PL")}
-          </time>
           {onDelete && (
             <button
               type="button"
               onClick={() => onDelete(item.id)}
               aria-label={`Usuń ${item.title}`}
-              className="text-[11px] text-rose-400 hover:text-rose-300 font-medium transition-colors"
+              className="text-[10px] text-rose-400 hover:text-rose-300 font-medium transition-colors flex-shrink-0"
             >
               Usuń
             </button>

@@ -38,7 +38,7 @@ export function ItemList({
       <div
         role="tablist"
         aria-label="Kategorie"
-        className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none"
+        className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-slate-950/90 backdrop-blur flex items-center gap-1.5 overflow-x-auto scrollbar-none"
       >
         {CATEGORY_TABS.map((tab) => {
           const isActive = selectedCategory === tab.value;
@@ -69,11 +69,11 @@ export function ItemList({
 
       {/* Content */}
       {isLoading ? (
-        <div className="flex flex-col gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-24 rounded-2xl bg-slate-900/60 border border-slate-800/60 animate-pulse"
+              className="aspect-[2/3] rounded-xl bg-slate-900/60 border border-slate-800/60 animate-pulse"
             />
           ))}
         </div>
@@ -84,8 +84,30 @@ export function ItemList({
             Brak elementów w wybranej kategorii. Dodaj swój pierwszy przedmiot!
           </p>
         </div>
+      ) : selectedCategory === "all" ? (
+        <div className="flex flex-col gap-6">
+          {CATEGORY_TABS.slice(1).map((tab) => {
+            const rowItems = filteredItems.filter((item) => item.category === tab.value);
+            if (!rowItems.length) return null;
+            return (
+              <section key={tab.value} aria-label={tab.label} className="flex flex-col gap-2">
+                <h2 className="text-sm font-bold text-white px-1">{tab.label}</h2>
+                <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory py-2 -mx-1 px-1 scrollbar-none">
+                  {rowItems.map((item) => (
+                    <div key={item.id} className="w-32 sm:w-40 flex-shrink-0 snap-start">
+                      <ItemCard item={item} onDelete={onDeleteItem} />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div
+          data-testid="item-grid"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
+        >
           {filteredItems.map((item) => (
             <ItemCard key={item.id} item={item} onDelete={onDeleteItem} />
           ))}

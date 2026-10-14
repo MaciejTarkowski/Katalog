@@ -115,46 +115,48 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-md">
-      {/* User bar */}
-      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900 border border-slate-800">
-        <div className="min-w-0 pr-2">
-          <p className="text-[11px] text-slate-400">Zalogowano jako:</p>
-          <p className="text-xs font-semibold text-slate-200 truncate">{user.email}</p>
-        </div>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="text-xs text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 transition-colors"
-        >
-          Wyloguj
-        </button>
-      </div>
-
-      {/* Action buttons: Dodaj + Udostępnij */}
-      <div className="flex flex-col gap-2.5">
-        {!isAddingItem ? (
+    <div className="flex flex-col gap-6 w-full">
+      <div className="flex flex-col gap-6 w-full max-w-md self-center">
+        {/* User bar */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900 border border-slate-800">
+          <div className="min-w-0 pr-2">
+            <p className="text-[11px] text-slate-400">Zalogowano jako:</p>
+            <p className="text-xs font-semibold text-slate-200 truncate">{user.email}</p>
+          </div>
           <button
             type="button"
-            onClick={() => setIsAddingItem(true)}
-            className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-sm transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2"
+            onClick={handleSignOut}
+            className="text-xs text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 transition-colors"
           >
-            <span>+ Dodaj przedmiot</span>
+            Wyloguj
           </button>
-        ) : (
-          <AddItemForm
-            onSubmit={handleAddItem}
-            onCancel={() => setIsAddingItem(false)}
-          />
-        )}
+        </div>
 
-        <button
-          type="button"
-          onClick={handleShareCollection}
-          className="w-full py-2.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 text-slate-300 hover:text-white font-medium text-xs transition-all flex items-center justify-center gap-2"
-        >
-          <span>{copiedShareLink ? "✓ Skopiowano link do schowka!" : "🔗 Udostępnij moją kolekcję"}</span>
-        </button>
+        {/* Action buttons: Dodaj + Udostępnij */}
+        <div className="flex flex-col gap-2.5">
+          {!isAddingItem ? (
+            <button
+              type="button"
+              onClick={() => setIsAddingItem(true)}
+              className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-sm transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2"
+            >
+              <span>+ Dodaj przedmiot</span>
+            </button>
+          ) : (
+            <AddItemForm
+              onSubmit={handleAddItem}
+              onCancel={() => setIsAddingItem(false)}
+            />
+          )}
+
+          <button
+            type="button"
+            onClick={handleShareCollection}
+            className="w-full py-2.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 text-slate-300 hover:text-white font-medium text-xs transition-all flex items-center justify-center gap-2"
+          >
+            <span>{copiedShareLink ? "✓ Skopiowano link do schowka!" : "🔗 Udostępnij moją kolekcję"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Items List */}

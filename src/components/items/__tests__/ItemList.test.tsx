@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ItemList } from "../ItemList";
 import { Item } from "@/types/database";
@@ -57,6 +57,28 @@ describe("ItemList", () => {
     expect(screen.getByText("Diuna")).toBeInTheDocument();
     expect(screen.queryByText("Abbey Road")).not.toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument(); // count
+  });
+
+  it("shows a horizontal row per non-empty category in the 'all' view", () => {
+    render(
+      <ItemList items={itemsMock} selectedCategory="all" onSelectCategory={vi.fn()} />
+    );
+
+    const books = screen.getByRole("region", { name: "Książki" });
+    const music = screen.getByRole("region", { name: "Muzyka" });
+    expect(within(books).getByText("Diuna")).toBeInTheDocument();
+    expect(within(music).getByText("Abbey Road")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Gry" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("item-grid")).not.toBeInTheDocument();
+  });
+
+  it("shows a cover grid when a category is selected", () => {
+    render(
+      <ItemList items={itemsMock} selectedCategory="music" onSelectCategory={vi.fn()} />
+    );
+
+    expect(within(screen.getByTestId("item-grid")).getByText("Abbey Road")).toBeInTheDocument();
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
   });
 
   it("calls onSelectCategory when clicking a category tab", () => {
