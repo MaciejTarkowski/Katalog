@@ -134,3 +134,13 @@ export async function searchOpenLibrary(
     docs.find((d) => d.cover_i && d.title && doc.title && textsOverlap(d.title, doc.title))?.cover_i;
   return fromSearchDoc(doc, coverId, categoryHint);
 }
+
+/** Up to `limit` distinct search hits (the single-result search keeps only the first). */
+export async function searchOpenLibraryMany(query: string, limit = 5): Promise<CatalogItem[]> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  const json = await readJson<OpenLibrarySearchResponse>(
+    await catalogFetch(`https://openlibrary.org/search.json?${params.toString()}`)
+  );
+  const items = await Promise.all((json?.docs ?? []).map((doc) => fromSearchDoc(doc, doc.cover_i)));
+  return items.filter((item): item is CatalogItem => Boolean(item));
+}

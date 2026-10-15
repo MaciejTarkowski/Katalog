@@ -55,3 +55,14 @@ export async function searchRawg(query: string): Promise<CatalogItem | null> {
   if (!game) return null;
   return fromGame(game);
 }
+
+export async function searchRawgMany(query: string, limit = 5): Promise<CatalogItem[]> {
+  const key = process.env.RAWG_API_KEY;
+  if (!key) return [];
+
+  const params = new URLSearchParams({ key, search: query, page_size: String(limit) });
+  const json = await readJson<RawgSearchResponse>(
+    await catalogFetch(`https://api.rawg.io/api/games?${params.toString()}`)
+  );
+  return (json?.results ?? []).map(fromGame).filter((item): item is CatalogItem => Boolean(item));
+}

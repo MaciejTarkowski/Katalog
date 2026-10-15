@@ -121,3 +121,48 @@ export async function searchMusicBrainz(
   if (!terms) return null;
   return search(`release:(${terms}) OR artist:(${terms})`);
 }
+
+interface MusicBrainzReleaseGroup {
+  id?: string;
+  title?: string;
+  "primary-type"?: string;
+  "first-release-date"?: string;
+  "artist-credit"?: MusicBrainzArtistCredit[];
+}
+
+/** Albums (release groups) matching the text by title or artist: one entry per album. */
+export async function searchMusicBrainzAlbums(query: string, limit = 5): Promise<CatalogItem[]> {
+  const terms = luceneTerms(query);
+  if (!terms) return [];
+
+  const params = new URLSearchParams({
+    query: `releasegroup:(${terms}) OR artist:(${terms})`,
+    fmt: "json",
+    limit: String(limit),
+  });
+  const json = await readJson<{ "release-groups"?: MusicBrainzReleaseGroup[] }>(
+    await fetchReleases(`https://musicbrainz.org/ws/2/release-group/?${params.toString()}`)
+  );
+
+  const items = await Promise.all(
+    (json?.["release-groups"] ?? []).map(async (group): Promise<CatalogItem | null> => {
+      if (!group.title || !group.id) return null;
+      const credit = group["artist-credit"]?.[0];
+      const cover = `https://coverartarchive.org/release-group/${group.id}/front-500`;
+      return {
+        title: group.title,
+        artist_creator: credit?.name || credit?.artist?.name || null,
+        category: "music",
+        subcategory: group["primary-type"] || null,
+        cover_url: (await coverExists(cover)) ? cover : null,
+        metadata: {
+          year: yearFromDate(group["first-release-date"]),
+          musicbrainz_id: group.id,
+          source: "musicbrainz",
+        },
+        source: "musicbrainz",
+      };
+    })
+  );
+  return items.filter((item): item is CatalogItem => Boolean(item));
+}

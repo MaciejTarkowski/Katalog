@@ -66,6 +66,20 @@ export async function lookupMetadata(payload: {
   return json.data as ScannedItemData;
 }
 
+/** Text search: up to 5 best catalog matches (the photo path keeps using lookupMetadata). */
+export async function searchCatalogItems(query: string): Promise<ScannedItemData[]> {
+  const res = await fetch("/api/catalog/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Nie udało się wyszukać.");
+  }
+  return json.data as ScannedItemData[];
+}
+
 /**
  * Photo → item data: compress, barcode, Gemini vision, local OCR + catalog lookup.
  * Throws ScanError (with the OCR text, if any) when nothing is found.

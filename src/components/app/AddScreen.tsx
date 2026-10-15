@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ItemInsert } from "@/types/database";
 import { searchCommunityItems } from "@/lib/items/api";
 import { uploadCoverImage } from "@/lib/storage/upload";
-import { PHASE_LABEL, ScanError, lookupMetadata, scanCoverFile, type ScannedItemData } from "@/lib/scan/pipeline";
+import { PHASE_LABEL, ScanError, scanCoverFile, searchCatalogItems, type ScannedItemData } from "@/lib/scan/pipeline";
 import { metaLine, pillStyle, plural, tileBackground, initialOf } from "@/lib/items/display";
 import { Cover, Icon, Sheet } from "@/components/ui/primitives";
 import { AddItemForm } from "@/components/items/AddItemForm";
@@ -277,7 +277,7 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
     }
   };
 
-  // Debounced search over catalogs (best match) and other users' items.
+  // Debounced search over catalogs (5 best matches) and other users' items.
   const search = (value: string) => {
     setQuery(value);
     setSelected(null);
@@ -291,12 +291,12 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
     }
     setSearching(true);
     searchTimer.current = setTimeout(async () => {
-      const [catalogHit, community] = await Promise.all([
-        lookupMetadata({ query: text }).catch(() => null),
+      const [catalogHits, community] = await Promise.all([
+        searchCatalogItems(text).catch((): ScannedItemData[] => []),
         searchCommunityItems(text).then((r) => r.data ?? []).catch(() => []),
       ]);
       if (seq !== searchSeq.current) return;
-      setResults([...(catalogHit ? [catalogHit] : []), ...community]);
+      setResults([...catalogHits, ...community]);
       setSearching(false);
     }, 450);
   };

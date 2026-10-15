@@ -80,3 +80,16 @@ export async function searchDiscogs(query: string): Promise<CatalogItem | null> 
   });
   return search(params);
 }
+
+/** Masters = one entry per album, not one per pressing. */
+export async function searchDiscogsAlbums(query: string, limit = 5): Promise<CatalogItem[]> {
+  const token = process.env.DISCOGS_TOKEN;
+  const headers: HeadersInit = {};
+  if (token) headers.Authorization = `Discogs token=${token}`;
+
+  const params = new URLSearchParams({ type: "master", q: query, per_page: String(limit) });
+  const json = await readJson<DiscogsSearchResponse>(
+    await catalogFetch(`https://api.discogs.com/database/search?${params.toString()}`, { headers })
+  );
+  return (json?.results ?? []).map(fromResult).filter((item): item is CatalogItem => Boolean(item));
+}

@@ -4,6 +4,7 @@ import { AddScreen } from "../AddScreen";
 
 const mockScan = vi.fn();
 const mockLookup = vi.fn();
+const mockSearch = vi.fn();
 const mockCommunity = vi.fn();
 const mockUpload = vi.fn();
 
@@ -14,6 +15,7 @@ vi.mock("@/lib/scan/pipeline", async (importOriginal) => {
     ...actual,
     scanCoverFile: (...args: unknown[]) => mockScan(...args),
     lookupMetadata: (...args: unknown[]) => mockLookup(...args),
+    searchCatalogItems: (...args: unknown[]) => mockSearch(...args),
   };
 });
 vi.mock("@/lib/items/api", () => ({
@@ -44,6 +46,7 @@ describe("AddScreen", () => {
     mockUpload.mockResolvedValue({ publicUrl: "https://cdn.example/solaris.jpg", error: null });
     mockCommunity.mockResolvedValue({ data: [], error: null });
     mockLookup.mockRejectedValue(new Error("Brak wyników"));
+    mockSearch.mockResolvedValue([]);
   });
 
   it("scans a cover and adds the found item, uploading the photo as cover", async () => {
@@ -112,7 +115,7 @@ describe("AddScreen", () => {
   });
 
   it("searches catalogs and other users' items, then adds the picked one", async () => {
-    mockLookup.mockResolvedValue({ ...SOLARIS, previewUrl: undefined, cover_url: "https://covers.example/s.jpg" });
+    mockSearch.mockResolvedValue([{ ...SOLARIS, previewUrl: undefined, cover_url: "https://covers.example/s.jpg" }]);
     mockCommunity.mockResolvedValue({
       data: [{ title: "Cyberiada", artist_creator: "Stanisław Lem", category: "book", subcategory: null, cover_url: null, metadata: {} }],
       error: null,
@@ -123,7 +126,8 @@ describe("AddScreen", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Tytuł lub twórca" }), { target: { value: "lem" } });
 
     const pick = await screen.findByRole("button", { name: /Cyberiada/ });
-    expect(mockLookup).toHaveBeenCalledWith({ query: "lem" });
+    expect(mockSearch).toHaveBeenCalledWith("lem");
+    expect(mockLookup).not.toHaveBeenCalled();
     expect(mockCommunity).toHaveBeenCalledWith("lem");
     expect(screen.getByText("2 wpisy w katalogach i kolekcjach")).toBeInTheDocument();
 
@@ -136,5 +140,26 @@ describe("AddScreen", () => {
       fireEvent.click(plus);
     });
     expect(await screen.findByRole("heading", { name: "Cyberiada" }, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it("lists up to 5 catalog results for a typed title", async () => {
+    mockSearch.mockResolvedValue(
+      ["Album A", "Album B", "Album C", "Album D", "Album E"].map((title) => ({
+        title,
+        artist_creator: "Pink Floyd",
+        category: "music",
+        subcategory: "Album",
+        cover_url: null,
+        metadata: {},
+      }))
+    );
+    render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /lub wpisz tytuł/ }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Tytuł lub twórca" }), { target: { value: "pink" } });
+
+    expect(await screen.findByRole("button", { name: /Album E/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Album [A-E]/ })).toHaveLength(5);
+    expect(screen.getByText("5 wpisów w katalogach i kolekcjach")).toBeInTheDocument();
   });
 });
