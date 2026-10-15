@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { ItemInsert } from "@/types/database";
 import { searchCommunityItems } from "@/lib/items/api";
 import { uploadCoverImage } from "@/lib/storage/upload";
-import { PHASE_LABEL, ScanError, scanCoverFile, searchCatalogItems, type ScannedItemData } from "@/lib/scan/pipeline";
-import { metaLine, pillStyle, plural, tileBackground, initialOf } from "@/lib/items/display";
-import { Cover, Icon, Sheet } from "@/components/ui/primitives";
+import { PHASE_LABEL, ScanError, scanCoverFile, searchCatalogItems, type CatalogSearchPage, type ScannedItemData } from "@/lib/scan/pipeline";
+import { CATEGORIES, metaLine, pillStyle, plural, tileBackground, initialOf } from "@/lib/items/display";
+import { Chip, Cover, Icon, Sheet } from "@/components/ui/primitives";
 import { AddItemForm } from "@/components/items/AddItemForm";
 
 export type NewItem = Omit<ItemInsert, "id" | "user_id" | "created_at" | "updated_at">;
@@ -206,6 +206,8 @@ function Stage({ phase, item, burstKey, onTap }: { phase: Phase; item: ScannedIt
   );
 }
 
+const inCategory = (value: string) => (value === "all" ? undefined : value);
+
 export function AddScreen({ onAdd, onToast }: AddScreenProps) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [label, setLabel] = useState("");
@@ -219,6 +221,11 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
   const [results, setResults] = useState<ScannedItemData[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
+  const [searchCategory, setSearchCategory] = useState<string>("all");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const pageRef = useRef(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const timers = useRef<Array<ReturnType<typeof setTimeout>>>([]);
@@ -277,10 +284,13 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
     }
   };
 
-  // Debounced search over catalogs (5 best matches) and other users' items.
-  const search = (value: string) => {
+  // Debounced search over catalogs (one page per call) and other users' items.
+  const search = (value: string, category = searchCategory) => {
     setQuery(value);
     setSelected(null);
+    pageRef.current = 0;
+    setHasMore(false);
+    setLoadingMore(false);
     clearTimeout(searchTimer.current);
     const text = value.trim();
     const seq = ++searchSeq.current;
@@ -291,14 +301,52 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
     }
     setSearching(true);
     searchTimer.current = setTimeout(async () => {
-      const [catalogHits, community] = await Promise.all([
-        searchCatalogItems(text).catch((): ScannedItemData[] => []),
+      const [catalog, community] = await Promise.all([
+        searchCatalogItems(text, { category: inCategory(category) }).catch(
+          (): CatalogSearchPage => ({ items: [], hasMore: false })
+        ),
         searchCommunityItems(text).then((r) => r.data ?? []).catch(() => []),
       ]);
       if (seq !== searchSeq.current) return;
-      setResults([...catalogHits, ...community]);
+      const communityHits = community.filter((r) => !inCategory(category) || r.category === category);
+      setResults([...catalog.items, ...communityHits]);
+      setHasMore(catalog.hasMore);
       setSearching(false);
     }, 450);
+  };
+
+  const loadMore = async () => {
+    const text = query.trim();
+    if (!text || !hasMore || loadingMore || searching) return;
+    const seq = searchSeq.current;
+    setLoadingMore(true);
+    try {
+      const next = await searchCatalogItems(text, { category: inCategory(searchCategory), page: pageRef.current + 1 });
+      if (seq !== searchSeq.current) return;
+      pageRef.current += 1;
+      setResults((prev) => [...prev, ...next.items]);
+      setHasMore(next.hasMore);
+    } catch {
+      if (seq === searchSeq.current) setHasMore(false);
+    } finally {
+      if (seq === searchSeq.current) setLoadingMore(false);
+    }
+  };
+
+  // Reaching the end of the list loads the next page.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) void loadMore();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
+  const pickSearchCategory = (value: string) => {
+    setSearchCategory(value);
+    search(query, value);
   };
 
   const confirmPick = () => {
@@ -467,6 +515,16 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
               className="flex-1 min-w-0 bg-transparent border-none outline-none text-tx text-base"
             />
           </div>
+          <div role="tablist" aria-label="Kategoria wyszukiwania" className="flex gap-2 overflow-x-auto scrollbar-none">
+            <Chip role="tab" active={searchCategory === "all"} onClick={() => pickSearchCategory("all")}>
+              Wszystkie
+            </Chip>
+            {CATEGORIES.map((c) => (
+              <Chip key={c.value} role="tab" active={searchCategory === c.value} onClick={() => pickSearchCategory(c.value)}>
+                {c.label}
+              </Chip>
+            ))}
+          </div>
           <div className="text-[12.5px] text-mu">
             {searching
               ? "Szukam..."
@@ -502,6 +560,11 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
               </button>
             );
           })}
+          {hasMore && (
+            <div ref={sentinelRef} className="flex-none py-3 text-center text-[12.5px] text-mu">
+              {loadingMore ? "Ładuję więcej..." : ""}
+            </div>
+          )}
         </div>
         <div className="absolute left-0 right-0 bottom-0 px-5 pt-4 pb-[max(34px,env(safe-area-inset-bottom))] flex items-center justify-between gap-3 bg-[linear-gradient(180deg,transparent,var(--s1)_40%)]">
           <div className="text-[13.5px] text-mu flex-1">{pickedItem ? `Wybrano: ${pickedItem.title}` : "Wybierz pozycję z listy"}</div>

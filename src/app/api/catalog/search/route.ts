@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { toClientPayload } from "@/lib/catalog/lookup";
-import { searchCatalog } from "@/lib/catalog/search";
+import { SEARCH_CATEGORIES, searchCatalog, type SearchCategory } from "@/lib/catalog/search";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,8 +10,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Podaj tekst wyszukiwania (pole 'query')." }, { status: 400 });
     }
 
-    const items = await searchCatalog(query);
-    return NextResponse.json({ success: true, data: items.map(toClientPayload) });
+    const category = SEARCH_CATEGORIES.find((c) => c === body.category) as SearchCategory | undefined;
+    const offset = Number.isInteger(body.offset) && body.offset > 0 ? body.offset : 0;
+
+    const { items, hasMore } = await searchCatalog(query, { category, offset });
+    return NextResponse.json({ success: true, data: items.map(toClientPayload), hasMore });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Wystąpił błąd podczas wyszukiwania.";
     return NextResponse.json({ error: message }, { status: 500 });

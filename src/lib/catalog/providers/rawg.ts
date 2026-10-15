@@ -56,11 +56,12 @@ export async function searchRawg(query: string): Promise<CatalogItem | null> {
   return fromGame(game);
 }
 
-export async function searchRawgMany(query: string, limit = 5): Promise<CatalogItem[]> {
+export async function searchRawgMany(query: string, limit = 5, offset = 0): Promise<CatalogItem[]> {
   const key = process.env.RAWG_API_KEY;
   if (!key) return [];
 
   const params = new URLSearchParams({ key, search: query, page_size: String(limit) });
+  if (offset) params.set("page", String(Math.floor(offset / limit) + 1));
   const json = await readJson<RawgSearchResponse>(
     await catalogFetch(`https://api.rawg.io/api/games?${params.toString()}`)
   );

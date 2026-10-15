@@ -1,6 +1,7 @@
 import { compressImage } from "@/lib/image/compress";
 import { detectBarcodeFromFile } from "@/lib/scan/barcode";
 import { recognizeCoverText } from "@/lib/scan/ocr";
+import { SEARCH_LIMIT } from "@/lib/catalog/searchConfig";
 
 export interface ScannedItemData {
   title: string;
@@ -66,18 +67,26 @@ export async function lookupMetadata(payload: {
   return json.data as ScannedItemData;
 }
 
-/** Text search: up to 5 best catalog matches (the photo path keeps using lookupMetadata). */
-export async function searchCatalogItems(query: string): Promise<ScannedItemData[]> {
+export interface CatalogSearchPage {
+  items: ScannedItemData[];
+  hasMore: boolean;
+}
+
+/** Text search, one page (`SEARCH_LIMIT` items) at a time; `page` starts at 0. */
+export async function searchCatalogItems(
+  query: string,
+  { category, page = 0 }: { category?: string; page?: number } = {}
+): Promise<CatalogSearchPage> {
   const res = await fetch("/api/catalog/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, category, offset: page * SEARCH_LIMIT }),
   });
   const json = await res.json();
   if (!res.ok || !json.success) {
     throw new Error(json.error || "Nie udało się wyszukać.");
   }
-  return json.data as ScannedItemData[];
+  return { items: json.data as ScannedItemData[], hasMore: Boolean(json.hasMore) };
 }
 
 /**

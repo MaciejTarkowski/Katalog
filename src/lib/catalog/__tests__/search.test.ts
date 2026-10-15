@@ -44,14 +44,14 @@ describe("searchCatalog", () => {
       "musicbrainz.org/ws/2/release-group": { "release-groups": [pinkFloyd] },
     });
 
-    const results = await searchCatalog("Dark side of the moon");
+    const results = (await searchCatalog("Dark side of the moon")).items;
 
     expect(results[0].artist_creator).toBe("Pink Floyd");
     expect(results[0].category).toBe("music");
     expect(results.map((r) => r.category)).toContain("book");
   });
 
-  it("returns at most 5 results", async () => {
+  it("returns at most SEARCH_LIMIT results and reports there is more", async () => {
     mockCatalog({
       "openlibrary.org/search.json": {
         docs: Array.from({ length: 5 }, (_, i) => ({ title: `Spider-Man ${i}`, cover_i: i + 1 })),
@@ -61,7 +61,47 @@ describe("searchCatalog", () => {
       },
     });
 
-    expect(await searchCatalog("Spider-Man")).toHaveLength(5);
+    const { items, hasMore } = await searchCatalog("Spider-Man");
+    expect(items).toHaveLength(10);
+    expect(hasMore).toBe(true);
+  });
+
+  it("queries only the providers of the chosen category", async () => {
+    mockCatalog({ "musicbrainz.org/ws/2/release-group": { "release-groups": [pinkFloyd] } });
+
+    const { items } = await searchCatalog("Dark side", { category: "music" });
+
+    const urls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
+    expect(urls.some((u) => u.includes("openlibrary.org") || u.includes("rawg.io"))).toBe(false);
+    expect(items.every((i) => i.category === "music")).toBe(true);
+  });
+
+  it("uses the same page size for every category", async () => {
+    mockCatalog({
+      "openlibrary.org/search.json": { docs: [] },
+      "api.rawg.io": { results: [] },
+      "musicbrainz.org/ws/2/release-group": { "release-groups": [] },
+      "api.discogs.com": { results: [] },
+    });
+    const sizes: Record<string, number> = {};
+    for (const category of ["music", "game", "book", "comic"] as const) {
+      (global.fetch as ReturnType<typeof vi.fn>).mockClear();
+      await searchCatalog("x", { category });
+      sizes[category] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+        .map((c) => new URL(String(c[0])).searchParams)
+        .reduce((sum, p) => sum + Number(p.get("limit") ?? p.get("per_page") ?? p.get("page_size")), 0);
+    }
+    expect(new Set(Object.values(sizes)).size).toBe(1);
+  });
+
+  it("passes the offset to the provider and signals the end of results", async () => {
+    mockCatalog({ "api.rawg.io": { results: [{ name: "Last game" }] } });
+
+    const { hasMore } = await searchCatalog("game", { category: "game", offset: 20 });
+
+    const url = new URL(String((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]));
+    expect(url.searchParams.get("page")).toBe("2");
+    expect(hasMore).toBe(false);
   });
 
   it("returns games and comics for a title that exists in both", async () => {
@@ -74,7 +114,7 @@ describe("searchCatalog", () => {
       },
     });
 
-    const categories = (await searchCatalog("Spider-Man")).map((r) => r.category);
+    const categories = (await searchCatalog("Spider-Man")).items.map((r) => r.category);
     expect(categories).toContain("game");
     expect(categories).toContain("comic");
   });
@@ -85,7 +125,7 @@ describe("searchCatalog", () => {
       "musicbrainz.org/ws/2/release-group": { "release-groups": [pinkFloyd] },
     });
 
-    const results = await searchCatalog("Dark side of the moon");
+    const results = (await searchCatalog("Dark side of the moon")).items;
     expect(results.map((r) => r.title)).toEqual(["The Dark Side of the Moon"]);
   });
 
@@ -95,7 +135,7 @@ describe("searchCatalog", () => {
       "openlibrary.org/search.json": { docs: [{ title: "Hobbit", cover_i: 2 }] },
     });
 
-    expect((await searchCatalog("Hobbit")).map((r) => r.title)).toEqual(["Hobbit"]);
+    expect((await searchCatalog("Hobbit")).items.map((r) => r.title)).toEqual(["Hobbit"]);
   });
 
   it("drops duplicates of the same title and creator", async () => {
@@ -106,12 +146,12 @@ describe("searchCatalog", () => {
       },
     });
 
-    expect(await searchCatalog("Dark side of the moon")).toHaveLength(1);
+    expect((await searchCatalog("Dark side of the moon")).items).toHaveLength(1);
   });
 
   it("returns an empty list for a blank query", async () => {
     mockCatalog({});
-    expect(await searchCatalog("   ")).toEqual([]);
+    expect(await searchCatalog("   ")).toEqual({ items: [], hasMore: false });
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });

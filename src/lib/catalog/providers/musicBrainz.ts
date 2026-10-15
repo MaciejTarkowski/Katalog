@@ -131,7 +131,7 @@ interface MusicBrainzReleaseGroup {
 }
 
 /** Albums (release groups) matching the text by title or artist: one entry per album. */
-export async function searchMusicBrainzAlbums(query: string, limit = 5): Promise<CatalogItem[]> {
+export async function searchMusicBrainzAlbums(query: string, limit = 5, offset = 0): Promise<CatalogItem[]> {
   const terms = luceneTerms(query);
   if (!terms) return [];
 
@@ -139,6 +139,7 @@ export async function searchMusicBrainzAlbums(query: string, limit = 5): Promise
     query: `releasegroup:(${terms}) OR artist:(${terms})`,
     fmt: "json",
     limit: String(limit),
+    ...(offset ? { offset: String(offset) } : {}),
   });
   const json = await readJson<{ "release-groups"?: MusicBrainzReleaseGroup[] }>(
     await fetchReleases(`https://musicbrainz.org/ws/2/release-group/?${params.toString()}`)

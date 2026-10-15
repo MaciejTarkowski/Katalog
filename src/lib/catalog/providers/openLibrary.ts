@@ -136,8 +136,9 @@ export async function searchOpenLibrary(
 }
 
 /** Up to `limit` distinct search hits (the single-result search keeps only the first). */
-export async function searchOpenLibraryMany(query: string, limit = 5): Promise<CatalogItem[]> {
+export async function searchOpenLibraryMany(query: string, limit = 5, offset = 0): Promise<CatalogItem[]> {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
+  if (offset) params.set("offset", String(offset));
   const json = await readJson<OpenLibrarySearchResponse>(
     await catalogFetch(`https://openlibrary.org/search.json?${params.toString()}`)
   );

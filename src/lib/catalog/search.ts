@@ -3,9 +3,10 @@ import { searchDiscogsAlbums } from "./providers/discogs";
 import { searchMusicBrainzAlbums } from "./providers/musicBrainz";
 import { searchOpenLibraryMany } from "./providers/openLibrary";
 import { searchRawgMany } from "./providers/rawg";
+import { SEARCH_LIMIT } from "./searchConfig";
 import type { CatalogItem } from "./types";
 
-export const SEARCH_LIMIT = 25;
+export { SEARCH_LIMIT };
 
 /** Wins ties between equally good title matches (an album over a book with the same name). */
 const CATEGORY_PRIORITY: Record<string, number> = { music: 3, game: 2, book: 1, comic: 0 };
@@ -43,23 +44,58 @@ async function safely(task: Promise<CatalogItem[]>): Promise<CatalogItem[]> {
   }
 }
 
-/** Free-text search across all catalogs: the best `SEARCH_LIMIT` distinct matches, most relevant first. */
-export async function searchCatalog(rawQuery: string): Promise<CatalogItem[]> {
-  const query = cleanSearchQuery(rawQuery);
-  if (!query) return [];
+export type SearchCategory = "music" | "game" | "book" | "comic";
+export const SEARCH_CATEGORIES: readonly SearchCategory[] = ["music", "game", "book", "comic"];
 
-  const lists = await Promise.all([
-    safely(searchOpenLibraryMany(query)),
-    safely(searchMusicBrainzAlbums(query)),
-    safely(searchDiscogsAlbums(query)),
-    safely(searchRawgMany(query)),
-  ]);
+export interface SearchOptions {
+  category?: SearchCategory;
+  /** How many results of this search were already delivered (a multiple of `SEARCH_LIMIT`). */
+  offset?: number;
+}
+
+export interface SearchPage {
+  items: CatalogItem[];
+  hasMore: boolean;
+}
+
+type Provider = (query: string, limit: number, offset: number) => Promise<CatalogItem[]>;
+
+const PROVIDERS: Record<SearchCategory, Provider[]> = {
+  music: [searchMusicBrainzAlbums, searchDiscogsAlbums],
+  game: [searchRawgMany],
+  book: [searchOpenLibraryMany],
+  comic: [searchOpenLibraryMany],
+};
+const ALL_PROVIDERS: Provider[] = [
+  searchOpenLibraryMany,
+  searchMusicBrainzAlbums,
+  searchDiscogsAlbums,
+  searchRawgMany,
+];
+
+/**
+ * Free-text search: one page of `SEARCH_LIMIT` distinct matches, most relevant first. With a category only
+ * its providers are asked; the page size is split evenly between them so every category yields the same number.
+ */
+export async function searchCatalog(rawQuery: string, options: SearchOptions = {}): Promise<SearchPage> {
+  const query = cleanSearchQuery(rawQuery);
+  if (!query) return { items: [], hasMore: false };
+
+  const { category, offset = 0 } = options;
+  const providers = category ? PROVIDERS[category] : ALL_PROVIDERS;
+  const perProvider = Math.ceil(SEARCH_LIMIT / providers.length);
+  const providerOffset = Math.floor(offset / providers.length);
+
+  const lists = await Promise.all(
+    providers.map((provider) => safely(provider(query, perProvider, providerOffset)))
+  );
+  const hasMore = lists.some((items) => items.length >= perProvider);
 
   const seen = new Set<string>();
-  return lists
-    .flatMap((items) =>
-      items
-        .filter((item) => item.title)
+  const items = lists
+    .flatMap((list) =>
+      list
+        .filter((item) => item.title && (!category || item.category === category))
         .map((item, rank) => ({ item, score: relevance(item, query, rank) }))
     )
     .sort((a, b) => b.score - a.score)
@@ -71,4 +107,5 @@ export async function searchCatalog(rawQuery: string): Promise<CatalogItem[]> {
     })
     .slice(0, SEARCH_LIMIT)
     .map(({ item }) => item);
+  return { items, hasMore };
 }

@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "../route";
 
-vi.mock("@/lib/catalog/search", () => ({ searchCatalog: vi.fn() }));
+vi.mock("@/lib/catalog/search", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/catalog/search")>()),
+  searchCatalog: vi.fn(),
+}));
 
 import { searchCatalog } from "@/lib/catalog/search";
 
@@ -19,7 +22,7 @@ describe("POST /api/catalog/search", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("returns client payloads for the found items", async () => {
-    mockSearch.mockResolvedValue([
+    mockSearch.mockResolvedValue({ hasMore: true, items: [
       {
         title: "The Dark Side of the Moon",
         artist_creator: "Pink Floyd",
@@ -29,14 +32,25 @@ describe("POST /api/catalog/search", () => {
         metadata: { year: "1973" },
         source: "musicbrainz",
       },
-    ]);
+    ] });
 
     const res = await POST(request({ query: " Dark side of the moon " }));
     const json = await res.json();
 
-    expect(mockSearch).toHaveBeenCalledWith("Dark side of the moon");
+    expect(mockSearch).toHaveBeenCalledWith("Dark side of the moon", { category: undefined, offset: 0 });
+    expect(json.hasMore).toBe(true);
     expect(res.status).toBe(200);
     expect(json.data[0]).toMatchObject({ title: "The Dark Side of the Moon", artist_creator: "Pink Floyd" });
+  });
+
+  it("forwards category and offset, ignoring invalid values", async () => {
+    mockSearch.mockResolvedValue({ items: [], hasMore: false });
+
+    await POST(request({ query: "mario", category: "game", offset: 40 }));
+    expect(mockSearch).toHaveBeenLastCalledWith("mario", { category: "game", offset: 40 });
+
+    await POST(request({ query: "mario", category: "bogus", offset: -3 }));
+    expect(mockSearch).toHaveBeenLastCalledWith("mario", { category: undefined, offset: 0 });
   });
 
   it("rejects an empty query", async () => {

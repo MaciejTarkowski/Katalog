@@ -40,13 +40,24 @@ function pickFile() {
   fireEvent.change(input, { target: { files: [new File(["x"], "cover.jpg", { type: "image/jpeg" })] } });
 }
 
+function albums(titles: string[], category = "music") {
+  return titles.map((title) => ({
+    title,
+    artist_creator: "Pink Floyd",
+    category,
+    subcategory: "Album",
+    cover_url: null,
+    metadata: {},
+  }));
+}
+
 describe("AddScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUpload.mockResolvedValue({ publicUrl: "https://cdn.example/solaris.jpg", error: null });
     mockCommunity.mockResolvedValue({ data: [], error: null });
     mockLookup.mockRejectedValue(new Error("Brak wyników"));
-    mockSearch.mockResolvedValue([]);
+    mockSearch.mockResolvedValue({ items: [], hasMore: false });
   });
 
   it("scans a cover and adds the found item, uploading the photo as cover", async () => {
@@ -115,7 +126,10 @@ describe("AddScreen", () => {
   });
 
   it("searches catalogs and other users' items, then adds the picked one", async () => {
-    mockSearch.mockResolvedValue([{ ...SOLARIS, previewUrl: undefined, cover_url: "https://covers.example/s.jpg" }]);
+    mockSearch.mockResolvedValue({
+      items: [{ ...SOLARIS, previewUrl: undefined, cover_url: "https://covers.example/s.jpg" }],
+      hasMore: false,
+    });
     mockCommunity.mockResolvedValue({
       data: [{ title: "Cyberiada", artist_creator: "Stanisław Lem", category: "book", subcategory: null, cover_url: null, metadata: {} }],
       error: null,
@@ -126,7 +140,7 @@ describe("AddScreen", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Tytuł lub twórca" }), { target: { value: "lem" } });
 
     const pick = await screen.findByRole("button", { name: /Cyberiada/ });
-    expect(mockSearch).toHaveBeenCalledWith("lem");
+    expect(mockSearch).toHaveBeenCalledWith("lem", { category: undefined });
     expect(mockLookup).not.toHaveBeenCalled();
     expect(mockCommunity).toHaveBeenCalledWith("lem");
     expect(screen.getByText("2 wpisy w katalogach i kolekcjach")).toBeInTheDocument();
@@ -143,16 +157,7 @@ describe("AddScreen", () => {
   });
 
   it("lists up to 5 catalog results for a typed title", async () => {
-    mockSearch.mockResolvedValue(
-      ["Album A", "Album B", "Album C", "Album D", "Album E"].map((title) => ({
-        title,
-        artist_creator: "Pink Floyd",
-        category: "music",
-        subcategory: "Album",
-        cover_url: null,
-        metadata: {},
-      }))
-    );
+    mockSearch.mockResolvedValue({ items: albums(["Album A", "Album B", "Album C", "Album D", "Album E"]), hasMore: false });
     render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /lub wpisz tytuł/ }));
@@ -161,5 +166,47 @@ describe("AddScreen", () => {
     expect(await screen.findByRole("button", { name: /Album E/ })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Album [A-E]/ })).toHaveLength(5);
     expect(screen.getByText("5 wpisów w katalogach i kolekcjach")).toBeInTheDocument();
+  });
+
+  it("searches only the chosen category and filters community items by it", async () => {
+    mockCommunity.mockResolvedValue({ data: albums(["Cyberiada"], "book"), error: null });
+    mockSearch.mockResolvedValue({ items: albums(["Gra A"], "game"), hasMore: false });
+    render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /lub wpisz tytuł/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Gry" }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Tytuł lub twórca" }), { target: { value: "gra" } });
+
+    expect(await screen.findByRole("button", { name: /Gra A/ })).toBeInTheDocument();
+    expect(mockSearch).toHaveBeenLastCalledWith("gra", { category: "game" });
+    expect(screen.queryByRole("button", { name: /Cyberiada/ })).not.toBeInTheDocument();
+  });
+
+  it("loads the next page when the end of the list is reached", async () => {
+    let reachEnd: () => void = () => {};
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(cb: (entries: Array<{ isIntersecting: boolean }>) => void) {
+          reachEnd = () => cb([{ isIntersecting: true }]);
+        }
+        observe() {}
+        disconnect() {}
+      }
+    );
+    mockSearch
+      .mockResolvedValueOnce({ items: albums(["Album A", "Album B"]), hasMore: true })
+      .mockResolvedValueOnce({ items: albums(["Album C"]), hasMore: false });
+    render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /lub wpisz tytuł/ }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Tytuł lub twórca" }), { target: { value: "pink" } });
+    await screen.findByRole("button", { name: /Album B/ });
+
+    await act(async () => reachEnd());
+
+    expect(await screen.findByRole("button", { name: /Album C/ })).toBeInTheDocument();
+    expect(mockSearch).toHaveBeenLastCalledWith("pink", { category: undefined, page: 1 });
+    vi.unstubAllGlobals();
   });
 });
