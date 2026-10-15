@@ -1,27 +1,42 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { Item, ItemInsert } from "@/types/database";
+import { Item } from "@/types/database";
 import { fetchItems, addItem, deleteItem } from "@/lib/items/api";
-import { fetchProfile, updateDisplayName, DISPLAY_NAME_MAX_LENGTH } from "@/lib/profiles/api";
-import { AuthForm } from "@/components/auth/AuthForm";
-import { ItemList } from "@/components/items/ItemList";
-import { AddItemForm } from "@/components/items/AddItemForm";
+import { fetchProfile } from "@/lib/profiles/api";
+import { initialOf } from "@/lib/items/display";
+import { Welcome } from "@/components/auth/Welcome";
+import { ItemDetailView } from "@/components/items/ItemDetailView";
+import { HomeScreen } from "@/components/app/HomeScreen";
+import { SearchScreen } from "@/components/app/SearchScreen";
+import { AddScreen, type NewItem } from "@/components/app/AddScreen";
+import { ShareScreen } from "@/components/app/ShareScreen";
+import { ProfileScreen } from "@/components/app/ProfileScreen";
+import { TabBar, type Tab } from "@/components/app/TabBar";
+import { Toast } from "@/components/ui/primitives";
 
 export function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [items, setItems] = useState<Item[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [copiedShareLink, setCopiedShareLink] = useState(false);
   const [displayName, setDisplayName] = useState("");
-  const [displayNameStatus, setDisplayNameStatus] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("home");
+  const [detail, setDetail] = useState<Item | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const supabase = createClient();
+  // One client per mount, so the auth effect below does not re-run on every render.
+  const [supabase] = useState(createClient);
+
+  const showToast = useCallback((message: string) => {
+    clearTimeout(toastTimer.current);
+    setToast(message);
+    toastTimer.current = setTimeout(() => setToast(null), 2400);
+  }, []);
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
 
   const loadItems = useCallback(async () => {
     setLoadingItems(true);
@@ -75,155 +90,101 @@ export function Dashboard() {
     };
   }, [userId]);
 
-  const handleSaveDisplayName = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { success, error } = await updateDisplayName(displayName);
-    setDisplayNameStatus(success ? "Zapisano" : error);
-  };
+  // Each screen starts at the top.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab, detail]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
     setItems([]);
+    setTab("home");
+    setDetail(null);
   };
 
-  const handleAddItem = async (
-    item: Omit<ItemInsert, "id" | "user_id" | "created_at" | "updated_at">
-  ): Promise<boolean> => {
+  const handleAddItem = async (item: NewItem): Promise<boolean> => {
     const { data, error } = await addItem(item);
     if (error || !data) {
       return false;
     }
     setItems((prev) => [data, ...prev]);
-    setIsAddingItem(false);
     return true;
   };
 
-  const handleDeleteItem = async (id: string) => {
-    const { success } = await deleteItem(id);
+  const handleDeleteItem = async (item: Item) => {
+    const { success } = await deleteItem(item.id);
     if (success) {
-      setItems((prev) => prev.filter((item) => item.id !== id));
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      setDetail(null);
+      showToast(`Usunięto „${item.title}”`);
     }
   };
 
-  const handleShareCollection = async () => {
-    if (!user) return;
-    const shareUrl = `${window.location.origin}/share/${user.id}`;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopiedShareLink(true);
-      setTimeout(() => setCopiedShareLink(false), 2500);
-    } catch {
-      // Clipboard fallback
-    }
+  const selectTab = (next: Tab) => {
+    setDetail(null);
+    setTab(next);
   };
 
   if (loadingAuth) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 gap-3">
-        <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-        <p className="text-xs text-slate-400">Ładowanie profilu...</p>
+      <div className="flex flex-col items-center justify-center min-h-dvh gap-3">
+        <div className="w-8 h-8 rounded-full border-2 border-ac border-t-transparent animate-spin" />
+        <p className="text-xs text-mu">Ładowanie profilu...</p>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex flex-col items-center gap-6 w-full max-w-sm">
-        <AuthForm onSuccess={() => loadItems()} />
-      </div>
+      <>
+        <Welcome onAuthSuccess={showToast} />
+        <Toast message={toast} />
+      </>
     );
   }
 
+  const name = displayName || user.email?.split("@")[0] || "";
+
   return (
-    <div className="flex flex-col gap-6 w-full">
-      <div className="flex flex-col gap-6 w-full max-w-md self-center">
-        {/* User bar */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900 border border-slate-800">
-          <div className="min-w-0 pr-2">
-            <p className="text-[11px] text-slate-400">Zalogowano jako:</p>
-            <p className="text-xs font-semibold text-slate-200 truncate">{user.email}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="text-xs text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 transition-colors"
-          >
-            Wyloguj
-          </button>
-        </div>
+    <div className="relative w-full max-w-[480px] mx-auto min-h-dvh">
+      {detail ? (
+        <ItemDetailView
+          key={detail.id}
+          item={detail}
+          onBack={() => setDetail(null)}
+          onDelete={handleDeleteItem}
+          similar={items.filter((i) => i.category === detail.category && i.id !== detail.id)}
+          onOpen={setDetail}
+        />
+      ) : tab === "home" ? (
+        <HomeScreen
+          items={items}
+          isLoading={loadingItems}
+          userInitial={initialOf(name) || "K"}
+          onOpen={setDetail}
+          onProfile={() => selectTab("profile")}
+          onAdd={() => selectTab("add")}
+        />
+      ) : tab === "search" ? (
+        <SearchScreen items={items} onOpen={setDetail} />
+      ) : tab === "add" ? (
+        <AddScreen onAdd={handleAddItem} onToast={showToast} />
+      ) : tab === "share" ? (
+        <ShareScreen userId={user.id} name={name} items={items} onToast={showToast} />
+      ) : (
+        <ProfileScreen
+          name={displayName}
+          items={items}
+          onOpen={setDetail}
+          onNameSaved={setDisplayName}
+          onSignOut={handleSignOut}
+          onToast={showToast}
+        />
+      )}
 
-        {/* Display name shown on the shared collection */}
-        <form
-          onSubmit={handleSaveDisplayName}
-          className="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-slate-900 border border-slate-800"
-        >
-          <label htmlFor="display-name" className="text-[11px] text-slate-400">
-            Nazwa wyświetlana
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="display-name"
-              type="text"
-              maxLength={DISPLAY_NAME_MAX_LENGTH}
-              value={displayName}
-              onChange={(e) => {
-                setDisplayName(e.target.value);
-                setDisplayNameStatus(null);
-              }}
-              placeholder="Widoczna w udostępnionej kolekcji"
-              className="flex-1 min-w-0 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              type="submit"
-              aria-label="Zapisz nazwę"
-              className="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 transition-colors"
-            >
-              Zapisz
-            </button>
-          </div>
-          {displayNameStatus && (
-            <p role="status" className="text-[11px] text-slate-400">
-              {displayNameStatus}
-            </p>
-          )}
-        </form>
-
-        {/* Action buttons: Dodaj + Udostępnij */}
-        <div className="flex flex-col gap-2.5">
-          {!isAddingItem ? (
-            <button
-              type="button"
-              onClick={() => setIsAddingItem(true)}
-              className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-sm transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2"
-            >
-              <span>+ Dodaj przedmiot</span>
-            </button>
-          ) : (
-            <AddItemForm
-              onSubmit={handleAddItem}
-              onCancel={() => setIsAddingItem(false)}
-            />
-          )}
-
-          <button
-            type="button"
-            onClick={handleShareCollection}
-            className="w-full py-2.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 text-slate-300 hover:text-white font-medium text-xs transition-all flex items-center justify-center gap-2"
-          >
-            <span>{copiedShareLink ? "✓ Skopiowano link do schowka!" : "🔗 Udostępnij moją kolekcję"}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Items List */}
-      <ItemList
-        items={items}
-        isLoading={loadingItems}
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-        onDeleteItem={handleDeleteItem}
-      />
+      <TabBar active={tab} onSelect={selectTab} />
+      <Toast message={toast} />
     </div>
   );
 }

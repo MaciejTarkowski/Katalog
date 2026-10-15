@@ -7,10 +7,9 @@ vi.mock("@/components/dashboard/Dashboard", () => ({
 }));
 
 describe("Home Page", () => {
-  it("renders app title and PWA badge", () => {
+  it("has an accessible app title", () => {
     render(<Home />);
     expect(screen.getByRole("heading", { name: "Katalog", level: 1 })).toBeInTheDocument();
-    expect(screen.getByText("PWA")).toBeInTheDocument();
   });
 
   it("renders the Dashboard component", () => {

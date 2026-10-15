@@ -3,6 +3,7 @@ import {
   expect,
   mockBackend,
   login,
+  openTab,
   SEED_ITEMS,
   USER_ID,
   USER_DISPLAY_NAME,
@@ -10,12 +11,18 @@ import {
 } from "./fixtures";
 
 test.describe("5. Link udostępniania", () => {
-  test("przycisk udostępniania kopiuje link /share/<userId>", async ({ page, context, baseURL }) => {
+  test("ekran Udostępnij pokazuje i kopiuje link /share/<userId>", async ({ page, context, baseURL }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL });
     await mockBackend(page);
     await login(page);
 
-    await page.getByRole("button", { name: /Udostępnij moją kolekcję/ }).click();
+    await openTab(page, "Udostępnij");
+    await expect(page.getByText(`Kolekcja: ${USER_DISPLAY_NAME}`)).toBeVisible();
+    // Przycisk na ekranie (nie zakładka w dolnym pasku o tej samej nazwie).
+    await page.locator("button:not(nav button)", { hasText: "Udostępnij" }).click();
+    await expect(page.getByTestId("share-url")).toHaveText(`${new URL(baseURL!).host}/share/${USER_ID}`);
+
+    await page.getByRole("button", { name: "Kopiuj link" }).click();
     await expect(page.getByText("Skopiowano link do schowka")).toBeVisible();
 
     const copied = await page.evaluate(() => navigator.clipboard.readText());

@@ -90,6 +90,13 @@ function userBody() {
 export async function mockBackend(page: Page, seed: MockItem[] = SEED_ITEMS): Promise<Backend> {
   const backend: Backend = { items: [...seed], inserts: [], deletes: [], writes: [], lookups: [] };
 
+  // Plakietka dev-serwera Next.js zasłania lewe zakładki dolnego paska — w testach ją chowamy.
+  await page.addInitScript(() => {
+    const style = document.createElement("style");
+    style.textContent = "nextjs-portal { display: none !important; }";
+    document.addEventListener("DOMContentLoaded", () => document.head.appendChild(style));
+  });
+
   // Rozpoznawanie obrazu: kod kreskowy wykryty „natywnie”, bez OCR i bez sieci.
   await page.addInitScript(() => {
     class FakeBarcodeDetector {
@@ -200,13 +207,31 @@ export async function mockBackend(page: Page, seed: MockItem[] = SEED_ITEMS): Pr
   return backend;
 }
 
-/** Loguje przez formularz — token zwraca zamockowany Supabase. */
+/** Loguje przez arkusz na ekranie powitalnym — token zwraca zamockowany Supabase. */
 export async function login(page: Page) {
   await page.goto("/");
-  await page.getByLabel("Adres e-mail").fill(USER_EMAIL);
-  await page.getByLabel("Hasło").fill("e2e-test-pass");
   await page.getByRole("button", { name: "Zaloguj się", exact: true }).click();
-  await expect(page.getByText(USER_EMAIL)).toBeVisible();
+  const sheet = page.getByRole("dialog", { name: "Logowanie" });
+  await sheet.getByLabel("Adres e-mail").fill(USER_EMAIL);
+  await sheet.getByLabel("Hasło").fill("e2e-test-pass");
+  await sheet.getByRole("button", { name: "Zaloguj się", exact: true }).click();
+  await expect(page.getByRole("navigation", { name: "Nawigacja" })).toBeVisible();
+}
+
+export type TabName = "Home" | "Szukaj" | "Dodaj" | "Udostępnij" | "Profil";
+
+/** Przełącza zakładkę w dolnym pasku nawigacji. */
+export async function openTab(page: Page, name: TabName) {
+  await page.getByRole("navigation", { name: "Nawigacja" }).getByRole("button", { name, exact: true }).click();
+}
+
+/** Wybiera zdjęcie okładki na ekranie „Dodaj”. */
+export async function pickCoverPhoto(page: Page) {
+  await page.getByTestId("cover-scan-file-input").setInputFiles({
+    name: "okladka.png",
+    mimeType: "image/png",
+    buffer: COVER_PNG,
+  });
 }
 
 export const test = base;

@@ -92,15 +92,15 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col gap-3 shadow-lg"
+      className="flex flex-col gap-3"
     >
-      <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-        <h3 className="text-sm font-bold text-white">Dodaj nowy element</h3>
+      <div className="flex items-center justify-between pb-2 border-b border-s2">
+        <h3 className="text-lg font-extrabold tracking-[-.02em]">Dodaj nowy element</h3>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="text-xs text-slate-400 hover:text-slate-200"
+            className="text-sm text-mu"
           >
             Zamknij
           </button>
@@ -115,7 +115,7 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
       {aiSuccessMsg && (
         <div
           role="status"
-          className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs flex items-center gap-1.5"
+          className="p-3 rounded-[14px] bg-ac/10 border border-ac/30 text-ac text-sm flex items-center gap-1.5"
         >
           <span>✨</span>
           <span>{aiSuccessMsg}</span>
@@ -123,13 +123,13 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
       )}
 
       {errorMsg && (
-        <div role="alert" className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+        <div role="alert" className="p-3 rounded-[14px] bg-rose-500/10 border border-rose-500/25 text-rose-400 text-sm">
           {errorMsg}
         </div>
       )}
 
       <div>
-        <label htmlFor="item-title" className="block text-xs font-medium text-slate-300 mb-1">
+        <label htmlFor="item-title" className="block text-[13px] font-medium text-mu mb-1.5">
           Tytuł *
         </label>
         <input
@@ -139,20 +139,20 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="np. Władca Pierścieni / Dark Side of the Moon"
-          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full h-[46px] px-3.5 rounded-[14px] bg-bg border border-s2 text-tx placeholder:text-mu/70 text-[15px] outline-none focus:border-ac"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label htmlFor="item-category" className="block text-xs font-medium text-slate-300 mb-1">
+          <label htmlFor="item-category" className="block text-[13px] font-medium text-mu mb-1.5">
             Kategoria
           </label>
           <select
             id="item-category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-[46px] px-3 rounded-[14px] bg-bg border border-s2 text-tx text-[15px] outline-none focus:border-ac"
           >
             {CATEGORIES.map((cat) => (
               <option key={cat.value} value={cat.value}>
@@ -163,7 +163,7 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
         </div>
 
         <div>
-          <label htmlFor="item-artist" className="block text-xs font-medium text-slate-300 mb-1">
+          <label htmlFor="item-artist" className="block text-[13px] font-medium text-mu mb-1.5">
             Twórca / Wykonawca
           </label>
           <input
@@ -172,14 +172,14 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
             value={artistCreator}
             onChange={(e) => setArtistCreator(e.target.value)}
             placeholder="np. Pink Floyd / J.R.R. Tolkien"
-            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-[46px] px-3.5 rounded-[14px] bg-bg border border-s2 text-tx placeholder:text-mu/70 text-[15px] outline-none focus:border-ac"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label htmlFor="item-subcategory" className="block text-xs font-medium text-slate-300 mb-1">
+          <label htmlFor="item-subcategory" className="block text-[13px] font-medium text-mu mb-1.5">
             Podkategoria / Format
           </label>
           <input
@@ -188,12 +188,12 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
             value={subcategory}
             onChange={(e) => setSubcategory(e.target.value)}
             placeholder="np. Winyl, Fantasy, PS5"
-            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-[46px] px-3.5 rounded-[14px] bg-bg border border-s2 text-tx placeholder:text-mu/70 text-[15px] outline-none focus:border-ac"
           />
         </div>
 
         <div>
-          <label htmlFor="item-cover" className="block text-xs font-medium text-slate-300 mb-1">
+          <label htmlFor="item-cover" className="block text-[13px] font-medium text-mu mb-1.5">
             URL Okładki
           </label>
           <input
@@ -202,7 +202,7 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
             value={coverUrl}
             onChange={(e) => setCoverUrl(e.target.value)}
             placeholder="https://..."
-            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-[46px] px-3.5 rounded-[14px] bg-bg border border-s2 text-tx placeholder:text-mu/70 text-[15px] outline-none focus:border-ac"
           />
         </div>
       </div>
@@ -210,7 +210,7 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
       <button
         type="submit"
         disabled={submitting}
-        className="w-full mt-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white font-medium text-xs transition-all shadow-md shadow-blue-600/20"
+        className="w-full mt-2 h-[54px] rounded-2xl bg-ac text-act font-semibold text-base disabled:opacity-50"
       >
         {submitting ? "Zapisywanie..." : "Dodaj do kolekcji"}
       </button>

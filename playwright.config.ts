@@ -14,6 +14,8 @@ export default defineConfig({
     channel: "chrome",
     viewport: { width: 390, height: 844 },
     locale: "pl-PL",
+    // Animacje (intro, skanowanie, obrót okładki) skrócone do zera — szybciej i stabilniej.
+    contextOptions: { reducedMotion: "reduce" },
   },
   webServer: {
     command: `npx next dev -p ${PORT}`,

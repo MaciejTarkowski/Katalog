@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Dashboard } from "../Dashboard";
 
@@ -18,6 +18,8 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
+const mockDeleteItem = vi.fn();
+
 vi.mock("@/lib/items/api", () => ({
   fetchItems: vi.fn().mockResolvedValue({
     data: [
@@ -26,22 +28,27 @@ vi.mock("@/lib/items/api", () => ({
         title: "Wiedźmin",
         category: "book",
         artist_creator: "Andrzej Sapkowski",
+        subcategory: null,
+        cover_url: null,
+        metadata: { year: 1993 },
         created_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "item-2",
+        title: "Abbey Road",
+        category: "music",
+        artist_creator: "The Beatles",
+        subcategory: "Winyl",
+        cover_url: null,
+        metadata: {},
+        created_at: "2026-01-02T00:00:00Z",
       },
     ],
     error: null,
   }),
-  addItem: vi.fn().mockResolvedValue({
-    data: {
-      id: "item-2",
-      title: "Cyberpunk 2077",
-      category: "game",
-      artist_creator: "CD Projekt RED",
-      created_at: "2026-01-02T00:00:00Z",
-    },
-    error: null,
-  }),
-  deleteItem: vi.fn().mockResolvedValue({ success: true, error: null }),
+  addItem: vi.fn(),
+  deleteItem: (id: string) => mockDeleteItem(id),
+  searchCommunityItems: vi.fn().mockResolvedValue({ data: [], error: null }),
 }));
 
 const mockFetchProfile = vi.fn();
@@ -53,128 +60,177 @@ vi.mock("@/lib/profiles/api", () => ({
   updateDisplayName: (name: string) => mockUpdateDisplayName(name),
 }));
 
+const USER = { id: "user-test-uuid", email: "kolekcjoner@example.com" };
+const tab = (name: string) => within(screen.getByRole("navigation", { name: "Nawigacja" })).getByRole("button", { name });
+
 describe("Dashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFetchProfile.mockResolvedValue({ data: null, error: null });
+    mockDeleteItem.mockResolvedValue({ success: true, error: null });
   });
 
-  it("renders auth form when user is not authenticated", async () => {
+  it("shows the welcome screen and opens the login sheet when not authenticated", async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
     render(<Dashboard />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Zaloguj się do Katalogu" })).toBeInTheDocument();
-    });
+    expect(await screen.findByText("Cała Twoja kolekcja. Na jednym ekranie.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Zaloguj się do Katalogu" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Zaloguj się" }));
+    expect(screen.getByRole("heading", { name: "Zaloguj się do Katalogu" })).toBeInTheDocument();
   });
 
-  it("renders user view and items when user is authenticated", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1", email: "kolekcjoner@example.com" } },
-      error: null,
-    });
-
+  it("opens the sign-up sheet from the welcome screen", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     render(<Dashboard />);
 
-    await waitFor(() => {
-      expect(screen.getByText("kolekcjoner@example.com")).toBeInTheDocument();
-      expect(screen.getByText("+ Dodaj przedmiot")).toBeInTheDocument();
-      expect(screen.getByText("Wiedźmin")).toBeInTheDocument();
-    });
+    fireEvent.click(await screen.findByRole("button", { name: "Zarejestruj się" }));
+    expect(screen.getByRole("heading", { name: "Utwórz konto w Katalogu" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Nazwa wyświetlana")).toBeInTheDocument();
   });
 
-  it("toggles add item form when clicking '+ Dodaj przedmiot'", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1", email: "kolekcjoner@example.com" } },
-      error: null,
-    });
-
+  it("shows the collection in category rows on the home screen", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
     render(<Dashboard />);
 
-    await waitFor(() => {
-      expect(screen.getByText("+ Dodaj przedmiot")).toBeInTheDocument();
-      expect(screen.getByText("Wiedźmin")).toBeInTheDocument();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("+ Dodaj przedmiot"));
-    });
-
-    expect(screen.getByRole("heading", { name: "Dodaj nowy element" })).toBeInTheDocument();
-    expect(screen.getByText("Zamknij")).toBeInTheDocument();
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("Zamknij"));
-    });
-    expect(screen.getByText("+ Dodaj przedmiot")).toBeInTheDocument();
+    const books = await screen.findByRole("region", { name: "Książki" });
+    expect(within(books).getByRole("heading", { name: "Wiedźmin" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Muzyka" })).getByRole("heading", { name: "Abbey Road" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Otwórz profil" })).toHaveTextContent("K");
   });
 
-  it("copies public collection share link to clipboard", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-test-uuid", email: "kolekcjoner@example.com" } },
-      error: null,
-    });
+  it("filters the home rows by category chip", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
 
+    fireEvent.click(screen.getByRole("tab", { name: "Muzyka" }));
+    expect(screen.queryByRole("heading", { name: "Wiedźmin" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Abbey Road" })).toBeInTheDocument();
+  });
+
+  it("searches the collection ignoring diacritics", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+
+    fireEvent.click(tab("Szukaj"));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Szukaj w kolekcji" }), { target: { value: "wiedzmin" } });
+
+    const grid = screen.getByTestId("item-grid");
+    expect(within(grid).getByText("Wiedźmin")).toBeInTheDocument();
+    expect(screen.queryByText("Abbey Road")).not.toBeInTheDocument();
+    expect(screen.getByText("wynik")).toBeInTheDocument();
+  });
+
+  it("opens the scanner from the add tab", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+
+    fireEvent.click(tab("Dodaj"));
+    expect(screen.getByText("Dotknij, aby zeskanować okładkę")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zeskanuj okładkę" })).toBeInTheDocument();
+  });
+
+  it("reveals and copies the public collection share link", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
     const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, {
-      clipboard: {
-        writeText: writeTextMock,
-      },
-    });
+    Object.assign(navigator, { clipboard: { writeText: writeTextMock } });
 
     render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+    fireEvent.click(tab("Udostępnij"));
 
+    const main = screen.getByText("Każdy z linkiem zobaczy Twoją kolekcję — bez zakładania konta.").parentElement!;
+    fireEvent.click(within(main).getByRole("button", { name: "Udostępnij" }));
+    expect(screen.getByTestId("share-url")).toHaveTextContent("/share/user-test-uuid");
+
+    fireEvent.click(screen.getByRole("button", { name: "Kopiuj link" }));
     await waitFor(() => {
-      expect(screen.getByText("🔗 Udostępnij moją kolekcję")).toBeInTheDocument();
+      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("/share/user-test-uuid"));
+      expect(screen.getByText("Skopiowano link do schowka!")).toBeInTheDocument();
     });
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("🔗 Udostępnij moją kolekcję"));
-    });
-
-    expect(writeTextMock).toHaveBeenCalledWith(
-      expect.stringContaining("/share/user-test-uuid")
-    );
-    expect(screen.getByText("✓ Skopiowano link do schowka!")).toBeInTheDocument();
   });
 
-  it("shows and saves the display name used in the shared collection", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1", email: "kolekcjoner@example.com" } },
-      error: null,
-    });
-    mockFetchProfile.mockResolvedValue({ data: { id: "user-1", display_name: "Maciek" }, error: null });
+  it("shows and saves the display name on the profile", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockFetchProfile.mockResolvedValue({ data: { id: USER.id, display_name: "Maciek" }, error: null });
     mockUpdateDisplayName.mockResolvedValue({ success: true, error: null });
 
     render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+    fireEvent.click(tab("Profil"));
 
-    const input = await screen.findByLabelText("Nazwa wyświetlana");
-    await waitFor(() => expect(input).toHaveValue("Maciek"));
-    expect(mockFetchProfile).toHaveBeenCalledWith("user-1");
+    expect(await screen.findByText("Maciek")).toBeInTheDocument();
+    expect(mockFetchProfile).toHaveBeenCalledWith(USER.id);
 
-    fireEvent.change(input, { target: { value: "Maciej T." } });
+    fireEvent.click(screen.getByRole("button", { name: "Edytuj nazwę" }));
+    fireEvent.change(screen.getByLabelText("Nazwa wyświetlana"), { target: { value: "Maciej T." } });
     fireEvent.click(screen.getByRole("button", { name: "Zapisz nazwę" }));
 
     await waitFor(() => {
       expect(mockUpdateDisplayName).toHaveBeenCalledWith("Maciej T.");
       expect(screen.getByText("Zapisano")).toBeInTheDocument();
+      expect(screen.getByText("Maciej T.")).toBeInTheDocument();
     });
   });
 
   it("shows an error when saving the display name fails", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1", email: "kolekcjoner@example.com" } },
-      error: null,
-    });
-    mockUpdateDisplayName.mockResolvedValue({
-      success: false,
-      error: "Nazwa musi mieć od 1 do 50 znaków.",
-    });
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockUpdateDisplayName.mockResolvedValue({ success: false, error: "Nazwa musi mieć od 1 do 50 znaków." });
 
     render(<Dashboard />);
-    fireEvent.click(await screen.findByRole("button", { name: "Zapisz nazwę" }));
+    await screen.findByRole("region", { name: "Książki" });
+    fireEvent.click(tab("Profil"));
+    fireEvent.click(screen.getByRole("button", { name: "Edytuj nazwę" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zapisz nazwę" }));
 
     expect(await screen.findByText("Nazwa musi mieć od 1 do 50 znaków.")).toBeInTheDocument();
+  });
+
+  it("filters the profile grid by category stats", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+    fireEvent.click(tab("Profil"));
+
+    expect(screen.getByText("Cała kolekcja · 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Muzyka/ }));
+    expect(screen.getByText("Muzyka · 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abbey Road" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Wiedźmin" })).not.toBeInTheDocument();
+  });
+
+  it("opens item details and deletes the item", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Wiedźmin" }));
+    expect(screen.getByRole("heading", { name: "Wiedźmin", level: 1 })).toBeInTheDocument();
+    expect(screen.getByText("1993")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Usuń Wiedźmin" }));
+    await waitFor(() => {
+      expect(mockDeleteItem).toHaveBeenCalledWith("item-1");
+      expect(screen.getByText("Usunięto „Wiedźmin”")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("heading", { name: "Wiedźmin" })).not.toBeInTheDocument();
+  });
+
+  it("signs out from the profile menu", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockSignOut.mockResolvedValue({ error: null });
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+    fireEvent.click(tab("Profil"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Więcej opcji" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Wyloguj" }));
+
+    await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
+    expect(await screen.findByText("Cała Twoja kolekcja. Na jednym ekranie.")).toBeInTheDocument();
   });
 });

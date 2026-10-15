@@ -69,14 +69,14 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
         aria-modal="true"
         aria-labelledby="community-search-title"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md max-h-[80vh] flex flex-col gap-3 p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg"
+        className="w-full max-w-md max-h-[80vh] flex flex-col gap-3 p-4 rounded-3xl bg-s1 border border-s2 shadow-lg"
       >
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 id="community-search-title" className="text-sm font-bold text-white">
+            <h3 id="community-search-title" className="text-sm font-bold text-tx">
               Szukaj we wpisach innych użytkowników
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-mu mt-0.5">
               Nie udało się rozpoznać okładki. Wpisz tytuł i wybierz istniejący wpis.
             </p>
           </div>
@@ -84,7 +84,7 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
             type="button"
             onClick={onClose}
             aria-label="Zamknij"
-            className="text-slate-400 hover:text-white text-lg leading-none px-1"
+            className="text-mu hover:text-tx text-lg leading-none px-1"
           >
             ×
           </button>
@@ -104,13 +104,13 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
                 void runSearch(query);
               }
             }}
-            className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50"
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-bg border border-s2 text-xs text-tx placeholder:text-mu outline-none focus:border-ac"
           />
           <button
             type="button"
             disabled={loading || !query.trim()}
             onClick={() => void runSearch(query)}
-            className="px-3 py-2 rounded-xl bg-violet-600/30 hover:bg-violet-600/40 border border-violet-500/30 text-violet-300 hover:text-white font-medium text-xs transition-all disabled:opacity-50"
+            className="px-3 py-2 rounded-xl bg-ac/15 border border-ac/40 text-ac font-medium text-xs transition-all disabled:opacity-50"
           >
             Szukaj w kolekcjach
           </button>
@@ -118,11 +118,11 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
 
         <div className="overflow-y-auto -mx-1 px-1">
           {loading ? (
-            <p className="text-xs text-slate-400 py-2">Szukam...</p>
+            <p className="text-xs text-mu py-2">Szukam...</p>
           ) : error ? (
             <p className="text-xs text-red-400 py-2">{error}</p>
           ) : results && results.length === 0 ? (
-            <p className="text-xs text-slate-400 py-2">
+            <p className="text-xs text-mu py-2">
               Brak wpisów dla „{query.trim()}”. Zamknij okno i uzupełnij dane ręcznie.
             </p>
           ) : (
@@ -132,9 +132,9 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
                   <button
                     type="button"
                     onClick={() => onSelect(item)}
-                    className="w-full flex items-center gap-3 p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-violet-500/50 text-left transition-all"
+                    className="w-full flex items-center gap-3 p-2 rounded-xl bg-bg border border-s2 hover:border-ac text-left transition-all"
                   >
-                    <div className="w-10 h-14 shrink-0 rounded-md overflow-hidden bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-500">
+                    <div className="w-10 h-14 shrink-0 rounded-md overflow-hidden bg-s2 flex items-center justify-center text-sm font-bold text-mu">
                       {item.cover_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={item.cover_url} alt="" className="w-full h-full object-cover" />
@@ -143,11 +143,11 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-white truncate">{item.title}</p>
+                      <p className="text-xs font-semibold text-tx truncate">{item.title}</p>
                       {item.artist_creator && (
-                        <p className="text-xs text-slate-400 truncate">{item.artist_creator}</p>
+                        <p className="text-xs text-mu truncate">{item.artist_creator}</p>
                       )}
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-[10px] text-mu">
                         {CATEGORY_LABELS[item.category] || item.category}
                         {item.subcategory ? ` · ${item.subcategory}` : ""}
                       </p>

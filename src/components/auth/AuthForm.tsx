@@ -4,11 +4,16 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface AuthFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (message: string) => void;
+  initialMode?: "login" | "signup";
 }
 
-export function AuthForm({ onSuccess }: AuthFormProps) {
-  const [isSignUp, setIsSignUp] = useState(false);
+const INPUT =
+  "w-full h-[50px] px-4 rounded-[14px] bg-bg border border-s2 text-base text-tx placeholder:text-mu/70 outline-none focus:border-ac transition-colors";
+const LABEL = "flex flex-col gap-1.5 text-[13px] font-medium text-mu";
+
+export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
+  const [isSignUp, setIsSignUp] = useState(initialMode === "signup");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +42,7 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
           setErrorMsg(error.message);
         } else if (data.session) {
           setSuccessMsg("Konto utworzone pomyślnie!");
-          if (onSuccess) onSuccess();
+          if (onSuccess) onSuccess("Konto utworzone pomyślnie!");
         } else {
           setSuccessMsg("Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.");
         }
@@ -51,7 +56,7 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
           setErrorMsg(error.message);
         } else {
           setSuccessMsg("Zalogowano pomyślnie!");
-          if (onSuccess) onSuccess();
+          if (onSuccess) onSuccess("Zalogowano pomyślnie!");
         }
       }
     } catch (err: unknown) {
@@ -63,12 +68,12 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
   };
 
   return (
-    <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-xl">
-      <div className="text-center mb-6">
-        <h2 className="text-xl font-bold text-white tracking-tight">
+    <div className="w-full flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-2xl font-extrabold tracking-[-.03em]">
           {isSignUp ? "Utwórz konto w Katalogu" : "Zaloguj się do Katalogu"}
         </h2>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-sm text-mu">
           {isSignUp
             ? "Zacznij bezpiecznie katalogować swoje zbiory"
             : "Zarządzaj swoją kolekcją w chmurze"}
@@ -77,10 +82,8 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {isSignUp && (
-          <div>
-            <label htmlFor="auth-display-name" className="block text-xs font-medium text-slate-300 mb-1">
-              Nazwa wyświetlana
-            </label>
+          <label htmlFor="auth-display-name" className={LABEL}>
+            Nazwa wyświetlana
             <input
               id="auth-display-name"
               type="text"
@@ -89,56 +92,48 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Jak mają Cię widzieć inni"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className={INPUT}
             />
-          </div>
+          </label>
         )}
 
-        <div>
-          <label htmlFor="auth-email" className="block text-xs font-medium text-slate-300 mb-1">
-            Adres e-mail
-          </label>
+        <label htmlFor="auth-email" className={LABEL}>
+          Adres e-mail
           <input
             id="auth-email"
             type="email"
             required
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="twoj@email.pl"
-            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            className={INPUT}
           />
-        </div>
+        </label>
 
-        <div>
-          <label htmlFor="auth-password" className="block text-xs font-medium text-slate-300 mb-1">
-            Hasło
-          </label>
+        <label htmlFor="auth-password" className={LABEL}>
+          Hasło
           <input
             id="auth-password"
             type="password"
             required
             minLength={6}
+            autoComplete={isSignUp ? "new-password" : "current-password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            className={INPUT}
           />
-        </div>
+        </label>
 
         {errorMsg && (
-          <div
-            role="alert"
-            className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs"
-          >
+          <div role="alert" className="p-3 rounded-[14px] bg-rose-500/10 border border-rose-500/25 text-rose-400 text-sm">
             {errorMsg}
           </div>
         )}
 
         {successMsg && (
-          <div
-            role="status"
-            className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs"
-          >
+          <div role="status" className="p-3 rounded-[14px] bg-ac/10 border border-ac/30 text-ac text-sm">
             {successMsg}
           </div>
         )}
@@ -146,26 +141,22 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white font-medium text-sm transition-all shadow-md shadow-blue-600/20"
+          className="h-[54px] mt-1 rounded-2xl bg-ac text-act text-[17px] font-semibold disabled:opacity-50 transition-opacity"
         >
           {loading ? "Przetwarzanie..." : isSignUp ? "Zarejestruj się" : "Zaloguj się"}
         </button>
 
-        <div className="text-center pt-2">
-          <button
-            type="button"
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setErrorMsg(null);
-              setSuccessMsg(null);
-            }}
-            className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
-          >
-            {isSignUp
-              ? "Masz już konto? Zaloguj się"
-              : "Nie masz konta? Zarejestruj się"}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setIsSignUp(!isSignUp);
+            setErrorMsg(null);
+            setSuccessMsg(null);
+          }}
+          className="p-1 text-sm text-mu"
+        >
+          {isSignUp ? "Masz już konto? Zaloguj się" : "Nie masz konta? Zarejestruj się"}
+        </button>
       </form>
     </div>
   );
