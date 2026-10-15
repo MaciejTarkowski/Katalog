@@ -5,7 +5,7 @@ import { searchOpenLibraryMany } from "./providers/openLibrary";
 import { searchRawgMany } from "./providers/rawg";
 import type { CatalogItem } from "./types";
 
-export const SEARCH_LIMIT = 5;
+export const SEARCH_LIMIT = 25;
 
 /** Wins ties between equally good title matches (an album over a book with the same name). */
 const CATEGORY_PRIORITY: Record<string, number> = { music: 3, game: 2, book: 1, comic: 0 };
