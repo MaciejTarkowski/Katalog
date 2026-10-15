@@ -15,6 +15,8 @@ interface HomeScreenProps {
 }
 
 const HERO_COUNT = 5;
+const HERO_INTERVAL_MS = 4500;
+const HERO_TICK_MS = 500;
 
 /** Cover tile with title + creator below, used in horizontal rows. */
 export function RowCard({ item, onOpen, width = 116 }: { item: Item; onOpen: (item: Item) => void; width?: number }) {
@@ -63,15 +65,26 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
     if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
   };
 
-  // Auto-advance the hero carousel.
+  // Auto-advance the hero carousel, but never while (or right after) the user drags it:
+  // a programmatic scroll mid-gesture would undo the swipe.
+  const touching = useRef(false);
+  const idleTicks = useRef(0);
+  const markTouch = (active: boolean) => {
+    touching.current = active;
+    idleTicks.current = 0;
+  };
+
   useEffect(() => {
     if (!showHero || hero.length < 2) return;
+    idleTicks.current = 0;
     const t = setInterval(() => {
       const el = heroRef.current;
-      if (!el || !el.clientWidth) return;
+      if (!el || !el.clientWidth || touching.current) return;
+      if (++idleTicks.current < HERO_INTERVAL_MS / HERO_TICK_MS) return;
+      idleTicks.current = 0;
       const next = (Math.round(el.scrollLeft / el.clientWidth) + 1) % hero.length;
       el.scrollTo({ left: next * el.clientWidth, behavior: "smooth" });
-    }, 4500);
+    }, HERO_TICK_MS);
     return () => clearInterval(t);
   }, [showHero, hero.length]);
 
@@ -133,6 +146,9 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
           <>
             <div
               ref={heroRef}
+              onTouchStart={() => markTouch(true)}
+              onTouchEnd={() => markTouch(false)}
+              onTouchCancel={() => markTouch(false)}
               onScroll={(e) => {
                 const el = e.currentTarget;
                 const i = Math.round(el.scrollLeft / (el.clientWidth || 1));
