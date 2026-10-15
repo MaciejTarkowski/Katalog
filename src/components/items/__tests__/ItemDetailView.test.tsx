@@ -50,7 +50,8 @@ describe("ItemDetailView", () => {
     expect(screen.getByText("1937")).toBeInTheDocument();
     expect(screen.getByText("Wydawca")).toBeInTheDocument();
     expect(screen.getByText("ISBN")).toBeInTheDocument();
-    expect(screen.getByText("Źródło")).toBeInTheDocument();
+    expect(screen.queryByText("Źródło")).not.toBeInTheDocument();
+    expect(screen.queryByText("Open Library")).not.toBeInTheDocument();
     expect(screen.queryByText("musicbrainz_id")).not.toBeInTheDocument();
     expect(screen.queryByText("nested")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Wróć/ })).toHaveAttribute("href", "/");

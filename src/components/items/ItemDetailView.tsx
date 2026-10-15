@@ -31,28 +31,19 @@ const METADATA_LABELS: Record<string, string> = {
   format: "Format",
   country: "Kraj",
   pages: "Liczba stron",
-  source: "Źródło",
 };
 
-const SOURCE_LABELS: Record<string, string> = {
-  openlibrary: "Open Library",
-  musicbrainz: "MusicBrainz",
-  discogs: "Discogs",
-  rawg: "RAWG",
-};
-
-/** Readable metadata rows: primitives (and string lists) only, no technical ids. */
+/** Readable metadata rows: primitives (and string lists) only, no technical ids or source. */
 function metadataRows(metadata: Record<string, unknown>): Array<[string, string]> {
   return Object.entries(metadata || {}).flatMap(([key, value]): Array<[string, string]> => {
-    if (key.endsWith("_id")) return [];
+    if (key.endsWith("_id") || key === "source") return [];
     const text = Array.isArray(value)
       ? value.filter((v) => typeof v === "string" || typeof v === "number").join(", ")
       : typeof value === "string" || typeof value === "number"
         ? String(value)
         : "";
     if (!text) return [];
-    const shown = key === "source" ? SOURCE_LABELS[text.toLowerCase()] || text : text;
-    return [[METADATA_LABELS[key] || key, shown]];
+    return [[METADATA_LABELS[key] || key, text]];
   });
 }
 
