@@ -76,4 +76,53 @@ describe("HomeScreen hero carousel", () => {
     });
     expect(scrollTo).toHaveBeenCalledTimes(1);
   });
+
+  it("treats trackpad/wheel scrolling as user activity", () => {
+    renderHome();
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    fireEvent.wheel(hero());
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("treats a manual scroll (no touch events) as user activity", () => {
+    renderHome();
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    hero().scrollLeft = 120;
+    fireEvent.scroll(hero());
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("re-aligns to the nearest slide instead of advancing when left between two slides", () => {
+    renderHome();
+    hero().scrollLeft = 100; // stuck between slide 0 and 1
+    act(() => {
+      vi.advanceTimersByTime(4500);
+    });
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith({ left: 0, behavior: "smooth" });
+  });
+
+  it("does not mistake its own smooth scroll for user activity", () => {
+    renderHome();
+    act(() => {
+      vi.advanceTimersByTime(4500);
+    });
+    hero().scrollLeft = 300;
+    fireEvent.scroll(hero());
+    act(() => {
+      vi.advanceTimersByTime(4500);
+    });
+    expect(scrollTo).toHaveBeenCalledTimes(2);
+    expect(scrollTo).toHaveBeenLastCalledWith({ left: 600, behavior: "smooth" });
+  });
 });

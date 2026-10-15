@@ -65,12 +65,18 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
     if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
   };
 
-  // Auto-advance the hero carousel, but never while (or right after) the user drags it:
-  // a programmatic scroll mid-gesture would undo the swipe.
+  // Auto-advance the hero carousel, but never while (or right after) the user scrolls it by any means
+  // (touch, wheel/trackpad, keyboard): a programmatic scroll mid-gesture would undo it or strand the
+  // carousel between two slides. Our own smooth scrolls are told apart so they don't count as activity.
   const touching = useRef(false);
   const idleTicks = useRef(0);
+  const programmatic = useRef(false);
+  const programmaticTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const markTouch = (active: boolean) => {
     touching.current = active;
+    idleTicks.current = 0;
+  };
+  const markActivity = () => {
     idleTicks.current = 0;
   };
 
@@ -82,10 +88,18 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
       if (!el || !el.clientWidth || touching.current) return;
       if (++idleTicks.current < HERO_INTERVAL_MS / HERO_TICK_MS) return;
       idleTicks.current = 0;
-      const next = (Math.round(el.scrollLeft / el.clientWidth) + 1) % hero.length;
-      el.scrollTo({ left: next * el.clientWidth, behavior: "smooth" });
+      const nearest = Math.round(el.scrollLeft / el.clientWidth);
+      const aligned = Math.abs(el.scrollLeft - nearest * el.clientWidth) <= 2;
+      const target = aligned ? (nearest + 1) % hero.length : nearest;
+      programmatic.current = true;
+      clearTimeout(programmaticTimer.current);
+      programmaticTimer.current = setTimeout(() => (programmatic.current = false), 800);
+      el.scrollTo({ left: target * el.clientWidth, behavior: "smooth" });
     }, HERO_TICK_MS);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      clearTimeout(programmaticTimer.current);
+    };
   }, [showHero, hero.length]);
 
   return (
@@ -149,7 +163,10 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
               onTouchStart={() => markTouch(true)}
               onTouchEnd={() => markTouch(false)}
               onTouchCancel={() => markTouch(false)}
+              onWheel={markActivity}
+              onKeyDown={markActivity}
               onScroll={(e) => {
+                if (!programmatic.current) markActivity();
                 const el = e.currentTarget;
                 const i = Math.round(el.scrollLeft / (el.clientWidth || 1));
                 if (i !== heroIdx) setHeroIdx(i);
