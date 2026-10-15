@@ -29,20 +29,26 @@ bez zgadywania. Dopiero potem rozpoznaj pozycję tak, by pasowała do tych fragm
 Zwróć oficjalny tytuł i twórcę (autor / wykonawca / studio), nie opis zdjęcia.
 category: book, music, game, comic albo other.
 subcategory: dla gier platforma (np. "PS4", "PS5", "Xbox One", "Switch", "PC"), dla muzyki nośnik ("CD", "Winyl", "Kaseta"), inaczej null.
-Jeśli tekst jest częściowo zasłonięty, użyj wiedzy o znanych wydaniach.`;
+Jeśli tekst jest częściowo zasłonięty, użyj wiedzy o znanych wydaniach.
+Jeśli nie potrafisz rozpoznać konkretnej pozycji, ustaw recognized na false — nie wpisuj "brak" ani opisu zdjęcia.`;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     visible_text: { type: "STRING" },
+    recognized: { type: "BOOLEAN" },
     title: { type: "STRING" },
     creator: { type: "STRING", nullable: true },
     category: { type: "STRING", enum: [...CATALOG_CATEGORIES] },
     subcategory: { type: "STRING", nullable: true },
   },
-  required: ["visible_text", "title", "category"],
-  propertyOrdering: ["visible_text", "title", "creator", "category", "subcategory"],
+  required: ["visible_text", "recognized", "title", "category"],
+  propertyOrdering: ["visible_text", "recognized", "title", "creator", "category", "subcategory"],
 };
+
+/** Fillers the model writes into required fields when it does not know the answer ("brak", "Nieznany tytuł"). */
+const PLACEHOLDER_RE =
+  /^(brak|nieznan[yaeo]|unknown|none|null|n\/?a|-+|\?+)(\s+(danych|tytułu|tytuł|informacji|wykonawcy|wykonawca|autora|autor|twórcy|twórca|title|artist))?\.?$/i;
 
 function configuredModels(): string[] {
   const fromEnv = process.env.GEMINI_MODELS?.split(",").map((m) => m.trim()).filter(Boolean);
@@ -52,7 +58,8 @@ function configuredModels(): string[] {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function optionalString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+  const text = typeof value === "string" ? value.trim() : "";
+  return text && !PLACEHOLDER_RE.test(text) ? text : null;
 }
 
 export function parseGeminiResponse(json: unknown): RecognizedCover | null {
@@ -68,6 +75,7 @@ export function parseGeminiResponse(json: unknown): RecognizedCover | null {
     return null;
   }
 
+  if (parsed.recognized === false) return null;
   const title = optionalString(parsed.title);
   if (!title) return null;
 

@@ -120,6 +120,27 @@ describe("parseGeminiResponse", () => {
     expect(parseGeminiResponse({})).toBeNull();
   });
 
+  it.each(["brak", "Brak", "BRAK DANYCH", "nieznany", "Nieznany tytuł", "unknown", "N/A", "-"])(
+    "returns null when the title is a placeholder (%s)",
+    (title) => {
+      expect(parseGeminiResponse(wrap(JSON.stringify({ title, category: "music" })))).toBeNull();
+    }
+  );
+
+  it("returns null when the model says it did not recognize the item", () => {
+    expect(
+      parseGeminiResponse(wrap(JSON.stringify({ recognized: false, title: "Okładka płyty", category: "music" })))
+    ).toBeNull();
+  });
+
+  it("drops placeholder creator and subcategory but keeps the title", () => {
+    expect(
+      parseGeminiResponse(
+        wrap(JSON.stringify({ recognized: true, title: "Solaris", creator: "brak", category: "book", subcategory: "Brak" }))
+      )
+    ).toEqual({ title: "Solaris", creator: null, category: "book", subcategory: null });
+  });
+
   it("maps an unknown category to other", () => {
     expect(
       parseGeminiResponse(wrap(JSON.stringify({ title: "X", category: "toy" })))?.category
