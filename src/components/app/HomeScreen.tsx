@@ -60,9 +60,22 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
     }))
     .filter((r) => r.items.length > 0);
 
+  // Cached instead of read from the DOM inside the scroll handler: `clientWidth` forces a
+  // synchronous layout reflow, and reading it on every scroll event (which can fire on nearly
+  // every frame of a touch drag) is what made swiping the carousel stutter/freeze.
+  const widthRef = useRef(0);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    const update = () => (widthRef.current = el.clientWidth);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [showHero]);
+
   const scrollHeroTo = (i: number) => {
     const el = heroRef.current;
-    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+    if (el) el.scrollTo({ left: i * (widthRef.current || el.clientWidth), behavior: "smooth" });
   };
 
   // Auto-advance the hero carousel, but never while (or right after) the user scrolls it by any means
@@ -79,6 +92,11 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
   const markActivity = () => {
     idleTicks.current = 0;
   };
+
+  const scrollRaf = useRef<number | undefined>(undefined);
+  useEffect(() => () => {
+    if (scrollRaf.current !== undefined) cancelAnimationFrame(scrollRaf.current);
+  }, []);
 
   useEffect(() => {
     if (!showHero || hero.length < 2) return;
@@ -167,9 +185,16 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
               onKeyDown={markActivity}
               onScroll={(e) => {
                 if (!programmatic.current) markActivity();
+                // Scroll events fire on nearly every frame of a touch drag — batch the index
+                // update to at most once per frame instead of a setState per event.
                 const el = e.currentTarget;
-                const i = Math.round(el.scrollLeft / (el.clientWidth || 1));
-                if (i !== heroIdx) setHeroIdx(i);
+                if (scrollRaf.current !== undefined) return;
+                scrollRaf.current = requestAnimationFrame(() => {
+                  scrollRaf.current = undefined;
+                  const width = widthRef.current || el.clientWidth;
+                  const i = Math.round(el.scrollLeft / (width || 1));
+                  setHeroIdx((prev) => (prev === i ? prev : i));
+                });
               }}
               className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
             >

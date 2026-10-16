@@ -125,4 +125,21 @@ describe("HomeScreen hero carousel", () => {
     expect(scrollTo).toHaveBeenCalledTimes(2);
     expect(scrollTo).toHaveBeenLastCalledWith({ left: 600, behavior: "smooth" });
   });
+
+  it("batches a burst of scroll events into a single animation frame instead of updating per event", () => {
+    const raf = vi.fn().mockReturnValue(1);
+    vi.stubGlobal("requestAnimationFrame", raf);
+    renderHome();
+    const el = hero();
+
+    el.scrollLeft = 10;
+    fireEvent.scroll(el);
+    el.scrollLeft = 20;
+    fireEvent.scroll(el);
+    el.scrollLeft = 30;
+    fireEvent.scroll(el);
+
+    expect(raf).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
 });
