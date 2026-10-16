@@ -5,7 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { Item } from "@/types/database";
 import { fetchItems, addItem, deleteItem } from "@/lib/items/api";
-import { fetchProfile } from "@/lib/profiles/api";
+import { ensureProfile, nameFromMetadata } from "@/lib/profiles/api";
 import { initialOf } from "@/lib/items/display";
 import { Welcome } from "@/components/auth/Welcome";
 import { ItemDetailView } from "@/components/items/ItemDetailView";
@@ -79,16 +79,17 @@ export function Dashboard() {
   }, [loadItems, supabase]);
 
   const userId = user?.id;
+  const metadataName = nameFromMetadata(user?.user_metadata);
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    fetchProfile(userId).then(({ data }) => {
+    ensureProfile(userId, metadataName).then(({ data }) => {
       if (!cancelled) setDisplayName(data?.display_name || "");
     });
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, metadataName]);
 
   // Each screen starts at the top.
   useEffect(() => {

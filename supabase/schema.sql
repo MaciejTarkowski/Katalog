@@ -126,7 +126,8 @@ CREATE OR REPLACE TRIGGER set_profiles_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_updated_at();
 
--- Profil zakładany przy rejestracji z nazwy podanej w formularzu (options.data.display_name)
+-- Profil zakładany przy rejestracji: nazwa z formularza (options.data.display_name),
+-- a przy logowaniu przez Google z full_name / name z konta Google
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -135,7 +136,11 @@ SET search_path = ''
 AS $$
 BEGIN
     INSERT INTO public.profiles (id, display_name)
-    VALUES (NEW.id, NULLIF(left(trim(NEW.raw_user_meta_data ->> 'display_name'), 50), ''))
+    VALUES (NEW.id, left(COALESCE(
+        NULLIF(trim(NEW.raw_user_meta_data ->> 'display_name'), ''),
+        NULLIF(trim(NEW.raw_user_meta_data ->> 'full_name'), ''),
+        NULLIF(trim(NEW.raw_user_meta_data ->> 'name'), '')
+    ), 50))
     ON CONFLICT (id) DO NOTHING;
     RETURN NEW;
 END;

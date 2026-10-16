@@ -51,12 +51,13 @@ vi.mock("@/lib/items/api", () => ({
   searchCommunityItems: vi.fn().mockResolvedValue({ data: [], error: null }),
 }));
 
-const mockFetchProfile = vi.fn();
+const mockEnsureProfile = vi.fn();
 const mockUpdateDisplayName = vi.fn();
 
-vi.mock("@/lib/profiles/api", () => ({
+vi.mock("@/lib/profiles/api", async (importOriginal) => ({
   DISPLAY_NAME_MAX_LENGTH: 50,
-  fetchProfile: (userId: string) => mockFetchProfile(userId),
+  nameFromMetadata: (await importOriginal<typeof import("@/lib/profiles/api")>()).nameFromMetadata,
+  ensureProfile: (userId: string, fallbackName: string) => mockEnsureProfile(userId, fallbackName),
   updateDisplayName: (name: string) => mockUpdateDisplayName(name),
 }));
 
@@ -66,7 +67,7 @@ const tab = (name: string) => within(screen.getByRole("navigation", { name: "Naw
 describe("Dashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFetchProfile.mockResolvedValue({ data: null, error: null });
+    mockEnsureProfile.mockResolvedValue({ data: null, error: null });
     mockDeleteItem.mockResolvedValue({ success: true, error: null });
   });
 
@@ -156,7 +157,7 @@ describe("Dashboard", () => {
 
   it("shows and saves the display name on the profile", async () => {
     mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
-    mockFetchProfile.mockResolvedValue({ data: { id: USER.id, display_name: "Maciek" }, error: null });
+    mockEnsureProfile.mockResolvedValue({ data: { id: USER.id, display_name: "Maciek" }, error: null });
     mockUpdateDisplayName.mockResolvedValue({ success: true, error: null });
 
     render(<Dashboard />);
@@ -164,7 +165,7 @@ describe("Dashboard", () => {
     fireEvent.click(tab("Profil"));
 
     expect(await screen.findByText("Maciek")).toBeInTheDocument();
-    expect(mockFetchProfile).toHaveBeenCalledWith(USER.id);
+    expect(mockEnsureProfile).toHaveBeenCalledWith(USER.id, "");
 
     fireEvent.click(screen.getByRole("button", { name: "Edytuj nazwę" }));
     fireEvent.change(screen.getByLabelText("Nazwa wyświetlana"), { target: { value: "Maciej T." } });
@@ -175,6 +176,18 @@ describe("Dashboard", () => {
       expect(screen.getByText("Zapisano")).toBeInTheDocument();
       expect(screen.getByText("Maciej T.")).toBeInTheDocument();
     });
+  });
+
+  it("fills a missing display name from the Google account", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { ...USER, user_metadata: { full_name: "Jan Kowalski" } } },
+      error: null,
+    });
+    mockEnsureProfile.mockResolvedValue({ data: { id: USER.id, display_name: "Jan Kowalski" }, error: null });
+    render(<Dashboard />);
+
+    await waitFor(() => expect(mockEnsureProfile).toHaveBeenCalledWith(USER.id, "Jan Kowalski"));
+    expect(await screen.findByRole("button", { name: "Otwórz profil" })).toHaveTextContent("J");
   });
 
   it("shows an error when saving the display name fails", async () => {

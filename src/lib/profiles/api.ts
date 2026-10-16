@@ -25,6 +25,47 @@ export async function fetchProfile(
   }
 }
 
+/** Name from auth metadata: our sign-up form sets display_name, Google sets full_name / name. */
+export function nameFromMetadata(metadata: Record<string, unknown> | undefined): string {
+  for (const key of ["display_name", "full_name", "name"]) {
+    const value = metadata?.[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim().slice(0, DISPLAY_NAME_MAX_LENGTH);
+    }
+  }
+  return "";
+}
+
+/**
+ * Fetches the profile and, when it is missing or has no name, saves `fallbackName`
+ * (e.g. after a Google sign-in that the `handle_new_user` trigger could not name).
+ */
+export async function ensureProfile(
+  userId: string,
+  fallbackName: string
+): Promise<{ data: Profile | null; error: string | null }> {
+  const profile = await fetchProfile(userId);
+  if (profile.error || profile.data?.display_name || !fallbackName) {
+    return profile;
+  }
+
+  try {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({ id: userId, display_name: fallbackName });
+
+    if (error) {
+      return { data: profile.data, error: error.message };
+    }
+
+    return { data: { id: userId, display_name: fallbackName }, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Błąd podczas zapisywania nazwy";
+    return { data: profile.data, error: message };
+  }
+}
+
 export async function updateDisplayName(
   name: string
 ): Promise<{ success: boolean; error: string | null }> {

@@ -14,7 +14,7 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
-import { fetchProfile, updateDisplayName } from "../api";
+import { ensureProfile, fetchProfile, nameFromMetadata, updateDisplayName } from "../api";
 
 describe("Profiles API", () => {
   beforeEach(() => {
@@ -65,6 +65,59 @@ describe("Profiles API", () => {
     expect(await updateDisplayName("Maciek")).toEqual({
       success: false,
       error: "Użytkownik nie jest zalogowany",
+    });
+  });
+
+  it("nameFromMetadata prefers display_name, then Google's full_name and name", () => {
+    expect(nameFromMetadata({ display_name: " Maciek ", full_name: "Jan Kowalski" })).toBe("Maciek");
+    expect(nameFromMetadata({ display_name: "  ", full_name: "Jan Kowalski", name: "Jan" })).toBe("Jan Kowalski");
+    expect(nameFromMetadata({ name: "Jan" })).toBe("Jan");
+    expect(nameFromMetadata({ full_name: "x".repeat(60) })).toBe("x".repeat(50));
+    expect(nameFromMetadata({})).toBe("");
+    expect(nameFromMetadata(undefined)).toBe("");
+  });
+
+  it("ensureProfile returns a named profile without writing", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { id: "u1", display_name: "Maciek" }, error: null });
+    expect(await ensureProfile("u1", "Jan Kowalski")).toEqual({
+      data: { id: "u1", display_name: "Maciek" },
+      error: null,
+    });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("ensureProfile fills a missing name from the fallback (Google sign-in)", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { id: "u1", display_name: null }, error: null });
+    mockUpsert.mockResolvedValue({ error: null });
+    expect(await ensureProfile("u1", "Jan Kowalski")).toEqual({
+      data: { id: "u1", display_name: "Jan Kowalski" },
+      error: null,
+    });
+    expect(mockUpsert).toHaveBeenCalledWith({ id: "u1", display_name: "Jan Kowalski" });
+  });
+
+  it("ensureProfile creates the missing profile row", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mockUpsert.mockResolvedValue({ error: null });
+    expect(await ensureProfile("u1", "Jan Kowalski")).toEqual({
+      data: { id: "u1", display_name: "Jan Kowalski" },
+      error: null,
+    });
+    expect(mockUpsert).toHaveBeenCalledWith({ id: "u1", display_name: "Jan Kowalski" });
+  });
+
+  it("ensureProfile does not write without a fallback name", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { id: "u1", display_name: null }, error: null });
+    expect(await ensureProfile("u1", "")).toEqual({ data: { id: "u1", display_name: null }, error: null });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("ensureProfile returns the write error and keeps the stored profile", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { id: "u1", display_name: null }, error: null });
+    mockUpsert.mockResolvedValue({ error: { message: "boom" } });
+    expect(await ensureProfile("u1", "Jan Kowalski")).toEqual({
+      data: { id: "u1", display_name: null },
+      error: "boom",
     });
   });
 });
