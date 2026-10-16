@@ -62,7 +62,7 @@ body {
 
 @keyframes kSpin { to { transform: rotate(360deg) } }
 @keyframes kShimmer { 0% { background-position: 160% 0 } 100% { background-position: -60% 0 } }
-@keyframes kScan { from { transform: translateY(0) } to { transform: translateY(100%) } }
+@keyframes kScan { from { transform: translateY(0) } to { transform: translateY(calc(100% - 2px)) } }
 @keyframes kShimmerX { from { transform: translateX(-98.5%) } to { transform: translateX(37%) } }
 @keyframes kTwinkle { 0%, 100% { opacity: 0; transform: scale(.3) rotate(0deg) } 50% { opacity: 1; transform: scale(1) rotate(45deg) } }
 @keyframes kBurst { 0% { transform: translate(0, 0) scale(1); opacity: 1 } 100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0 } }

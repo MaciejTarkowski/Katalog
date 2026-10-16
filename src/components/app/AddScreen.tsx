@@ -131,7 +131,8 @@ function Stage({
           }}
         />
         <span
-          // Full-height layer moved with translateY (90% of the stage height) so the line glides on
+          // Full-height layer moved with translateY (stage height minus the 2px line, so it touches
+          // both the top and bottom edge) so the line glides on
           // the GPU instead of re-laying out `top` every frame; linear so it never stalls at the edges.
           key={`scanline${scanKey}`}
           data-testid="stage-scanline-sweep"
@@ -145,7 +146,7 @@ function Stage({
           }}
         >
           <span
-            className="absolute left-2.5 right-2.5 top-[4%] h-0.5 rounded-sm bg-ac"
+            className="absolute left-2.5 right-2.5 top-0 h-0.5 rounded-sm bg-ac"
             style={{ boxShadow: "0 0 14px 3px var(--ac)" }}
           />
         </span>

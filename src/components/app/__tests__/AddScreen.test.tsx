@@ -239,6 +239,18 @@ describe("AddScreen", () => {
     expect(sweep).toContain("linear");
   });
 
+  it("sweeps the scan line all the way from the top edge to the bottom edge", () => {
+    const css = readFileSync(resolve(__dirname, "../../../app/globals.css"), "utf8");
+    render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+    const line = screen.getByTestId("stage-scanline-sweep").firstElementChild as HTMLElement;
+
+    // Starts flush with the top edge and stops with its bottom flush with the bottom edge
+    // (a full 100% shift would push the 2px line out of the clipped stage).
+    expect(line.className).toMatch(/\btop-0\b/);
+    expect(line.className).toMatch(/\bh-0\.5\b/);
+    expect(css).toMatch(/@keyframes kScan \{[^}]*\}[^}]*translateY\(calc\(100% - 2px\)\)/);
+  });
+
   it("fades the sparkle field out via its wrapper instead of killing the animation when scanning ends", async () => {
     mockScan.mockResolvedValue(SOLARIS);
     render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
