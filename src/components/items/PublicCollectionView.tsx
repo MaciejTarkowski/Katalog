@@ -5,7 +5,30 @@ import Link from "next/link";
 import { Item } from "@/types/database";
 import { fetchPublicItems } from "@/lib/items/api";
 import { fetchProfile } from "@/lib/profiles/api";
-import { ItemList } from "./ItemList";
+import { Chip, Cover } from "@/components/ui/primitives";
+import { CATEGORIES, OTHER_CATEGORY, collectionSummary, matchesQuery, normalizeForSearch } from "@/lib/items/display";
+
+function RowCard({ item }: { item: Item }) {
+  return (
+    <article className="flex-none w-[116px] flex flex-col gap-[7px] snap-start">
+      <Link href={`/item/${item.id}?from=share`} aria-label={item.title} className="block">
+        <Cover
+          title={item.title}
+          seed={item.id}
+          src={item.cover_url}
+          alt={item.title}
+          showTitle
+          className="rounded-[10px] shadow-[0_0_0_1px_rgba(255,255,255,.07)]"
+          style={{ width: 116, height: 174 }}
+        />
+      </Link>
+      <div className="min-w-0">
+        <h3 className="text-[13px] font-semibold truncate">{item.title}</h3>
+        {item.artist_creator && <p className="text-xs text-mu truncate">{item.artist_creator}</p>}
+      </div>
+    </article>
+  );
+}
 
 interface PublicCollectionViewProps {
   userId: string;
@@ -16,6 +39,7 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [ownerName, setOwnerName] = useState<string | null>(null);
 
@@ -56,59 +80,101 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
     }
   };
 
+  const query = normalizeForSearch(searchQuery.trim());
+  const hasOther = items.some((i) => !CATEGORIES.some((c) => c.value === i.category));
+  const tabs = hasOther ? [...CATEGORIES, OTHER_CATEGORY] : CATEGORIES;
+  const rows = tabs
+    .filter((c) => selectedCategory === "all" || selectedCategory === c.value)
+    .map((c) => ({
+      ...c,
+      items: items.filter(
+        (i) =>
+          (c.value === "other" ? !CATEGORIES.some((k) => k.value === i.category) : i.category === c.value) &&
+          matchesQuery(i, query)
+      ),
+    }))
+    .filter((r) => r.items.length > 0);
+
   return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* Header card */}
-      <div className="w-full max-w-md self-center p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
-              Publiczna Kolekcja
-            </span>
-          </div>
+    <div className="flex flex-col w-full pb-10">
+      <div className="px-5 pt-2 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[10.5px] font-bold tracking-[.14em] px-2 py-1 rounded-md bg-ac text-act uppercase">
+            Publiczna Kolekcja
+          </span>
           <button
             type="button"
             onClick={handleCopyLink}
-            className="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 transition-colors flex items-center gap-1.5"
+            className="h-[34px] px-[15px] rounded-[17px] border border-white/15 bg-white/[.06] text-tx text-[13px] font-semibold"
           >
             {copied ? "✓ Skopiowano link!" : "🔗 Udostępnij"}
           </button>
         </div>
-
         <div>
-          <h2 className="text-lg font-bold text-white tracking-tight">
+          <h2 className="text-[28px] font-extrabold tracking-[-.035em] leading-[1.08]">
             {ownerName ? `Kolekcja użytkownika ${ownerName}` : "Kolekcja użytkownika"}
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Tryb tylko do odczytu. Zbiory i eksponaty zgromadzone w Katalogu.
+          <p className="text-sm text-mu mt-1">
+            Tryb tylko do odczytu{items.length > 0 ? ` · ${collectionSummary(items)}` : ""}
           </p>
         </div>
+        <input
+          type="search"
+          aria-label="Szukaj w kolekcji"
+          placeholder="Szukaj po tytule lub twórcy..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-[50px] px-4 rounded-[14px] bg-bg border border-s2 text-base text-tx placeholder:text-mu/70 outline-none focus:border-ac transition-colors"
+        />
+      </div>
+
+      <div role="tablist" aria-label="Kategorie" className="flex gap-2 overflow-x-auto scrollbar-none px-5 pt-4 pb-1">
+        <Chip role="tab" active={selectedCategory === "all"} onClick={() => setSelectedCategory("all")}>
+          Wszystkie
+        </Chip>
+        {tabs.map((c) => (
+          <Chip key={c.value} role="tab" active={selectedCategory === c.value} onClick={() => setSelectedCategory(c.value)}>
+            {c.label}
+          </Chip>
+        ))}
       </div>
 
       {errorMsg ? (
-        <div
-          role="alert"
-          className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs text-center"
-        >
+        <div role="alert" className="mx-5 mt-6 p-4 rounded-[18px] bg-rose-500/10 border border-rose-500/25 text-rose-400 text-sm text-center">
           {errorMsg}
         </div>
+      ) : loading ? (
+        <div className="flex gap-3 px-5 mt-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="w-[116px] h-[174px] rounded-[10px] bg-s1 animate-pulse" />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="mx-5 mt-6 px-5 py-11 rounded-[18px] bg-s1 border border-s2 text-center">
+          <p className="text-[15px] font-semibold">{query ? `Brak wyników dla „${searchQuery.trim()}”` : "Pusta kolekcja"}</p>
+          <p className="text-[13px] text-mu mt-1">
+            {query ? "Spróbuj innej frazy lub kategorii." : "Brak elementów w wybranej kategorii."}
+          </p>
+        </div>
       ) : (
-        <ItemList
-          items={items}
-          isLoading={loading}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          fromShare
-        />
+        rows.map((r) => (
+          <section key={r.value} aria-label={r.label} className="mt-[26px]">
+            <div className="flex items-baseline justify-between px-5">
+              <h2 className="text-lg font-bold tracking-[-.02em]">{r.label}</h2>
+              <span className="text-[13px] text-mu">{r.items.length}</span>
+            </div>
+            <div className="flex gap-3 overflow-x-auto scrollbar-none px-5 pt-3 pb-1 snap-x snap-mandatory scroll-px-5">
+              {r.items.map((it) => (
+                <RowCard key={it.id} item={it} />
+              ))}
+            </div>
+          </section>
+        ))
       )}
 
-      {/* CTA Footer */}
-      <div className="w-full max-w-md self-center p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 text-center flex flex-col gap-2">
-        <p className="text-xs text-slate-400">Podoba Ci się ten zbiór?</p>
-        <Link
-          href="/"
-          className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition-all shadow-md shadow-blue-600/20"
-        >
+      <div className="mx-5 mt-10 px-5 py-6 rounded-[18px] bg-s1 border border-s2 text-center flex flex-col gap-3">
+        <p className="text-[13px] text-mu">Podoba Ci się ten zbiór?</p>
+        <Link href="/" className="inline-flex items-center justify-center h-11 px-5 rounded-full bg-ac text-act font-semibold text-[15px]">
           Załóż własny darmowy Katalog
         </Link>
       </div>

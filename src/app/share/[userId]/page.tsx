@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { Logo } from "@/components/ui/primitives";
 import { ShareContent } from "./ShareContent";
 
 interface PageProps {
@@ -9,27 +10,23 @@ interface PageProps {
 
 export default function SharePage({ params }: PageProps) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-4 sm:p-8 bg-slate-950 text-slate-100">
-      <header className="w-full max-w-6xl flex items-center justify-between py-4 border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20">
-            K
-          </div>
-          <h1 className="text-xl font-bold tracking-tight">Katalog</h1>
-        </div>
-        <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
+    <main className="flex min-h-screen flex-col items-center bg-bg text-tx">
+      <header className="w-full max-w-xl flex items-center justify-between px-5 pt-[max(20px,env(safe-area-inset-top))] pb-2">
+        <h1 className="sr-only">Katalog</h1>
+        <Logo size={26} />
+        <span className="text-[11px] px-2.5 py-1 rounded-full border border-white/15 bg-white/[.06] text-mu font-semibold">
           Publiczny
         </span>
       </header>
 
-      <section className="w-full max-w-6xl my-6 flex flex-col items-center">
-        <Suspense fallback={<div className="text-xs text-slate-400 py-8">Ładowanie kolekcji...</div>}>
+      <section className="w-full max-w-xl flex flex-col">
+        <Suspense fallback={<div className="text-sm text-mu px-5 py-8">Ładowanie kolekcji...</div>}>
           <ShareContent params={params} />
         </Suspense>
       </section>
 
-      <footer className="w-full max-w-6xl text-center py-4 border-t border-slate-900 text-xs text-slate-500">
-        Katalog PWA &copy; 2026. Kolekcja udostępniona publicznie.
+      <footer className="w-full max-w-xl text-center px-5 pb-6 text-xs text-mu">
+        Katalog &copy; 2026. Kolekcja udostępniona publicznie.
       </footer>
     </main>
   );

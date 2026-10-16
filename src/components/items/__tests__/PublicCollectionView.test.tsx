@@ -42,7 +42,7 @@ describe("PublicCollectionView", () => {
     render(<PublicCollectionView userId="user-public" />);
 
     await waitFor(() => {
-      expect(screen.getByText("Gra o Tron")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Gra o Tron" })).toBeInTheDocument();
       expect(screen.getByText("George R.R. Martin")).toBeInTheDocument();
       expect(screen.getByText("Publiczna Kolekcja")).toBeInTheDocument();
       // Ensure NO delete button is present (read-only)
@@ -52,6 +52,51 @@ describe("PublicCollectionView", () => {
       "href",
       "/item/item-1?from=share"
     );
+  });
+
+  it("uses the app's theme tokens instead of the legacy slate/blue palette", async () => {
+    mockFetchPublicItems.mockResolvedValue({
+      data: [
+        {
+          id: "item-1",
+          user_id: "user-public",
+          title: "Gra o Tron",
+          artist_creator: null,
+          category: "book",
+          subcategory: null,
+          cover_url: null,
+          metadata: {},
+          created_at: "2026-01-01T00:00:00Z",
+        },
+      ],
+      error: null,
+    });
+    const { container } = render(<PublicCollectionView userId="user-public" />);
+    await screen.findByRole("heading", { name: "Gra o Tron" });
+    expect(container.innerHTML).not.toMatch(/slate-|blue-\d/);
+    expect(screen.getByRole("tab", { name: "Wszystkie" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("filters by category and by search text", async () => {
+    const base = { user_id: "u", artist_creator: null, subcategory: null, cover_url: null, metadata: {}, created_at: "2026-01-01T00:00:00Z" };
+    mockFetchPublicItems.mockResolvedValue({
+      data: [
+        { ...base, id: "a", title: "Hobbit", category: "book" },
+        { ...base, id: "b", title: "Zelda", category: "game" },
+      ],
+      error: null,
+    });
+    render(<PublicCollectionView userId="u" />);
+    await screen.findByRole("heading", { name: "Hobbit" });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Gry" }));
+    expect(screen.queryByRole("heading", { name: "Hobbit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Zelda" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Wszystkie" }));
+    fireEvent.change(screen.getByLabelText("Szukaj w kolekcji"), { target: { value: "hob" } });
+    expect(screen.getByRole("heading", { name: "Hobbit" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Zelda" })).not.toBeInTheDocument();
   });
 
   it("copies link to clipboard when clicking Udostępnij button", async () => {
