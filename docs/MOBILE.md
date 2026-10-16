@@ -3,6 +3,12 @@
 Aplikacja potrzebuje serwera (trasy `/api/catalog/*`, Gemini), więc nie da się jej spakować jako statycznej
 aplikacji natywnej. Obie platformy używają wdrożonej wersji HTTPS (np. Vercel) jako źródła.
 
+## Wymagany adres produkcyjny
+Adres `...-<hash>-<projekt>.vercel.app` to wdrożenie jednorazowe i chronione logowaniem Vercel (Deployment Protection:
+każde żądanie, także `/manifest.json`, przekierowuje na vercel.com/sso-api). PWABuilder, APK i linki udostępniania
+dla innych osób wymagają **publicznego adresu produkcyjnego**: w Vercel → Settings → Deployment Protection wyłącz
+Vercel Authentication dla Production i użyj domeny typu `https://<projekt>.vercel.app` (Settings → Domains).
+
 ## iOS — PWA (bez Apple Developer Program)
 1. Otwórz wdrożony adres w **Safari** (inne przeglądarki na iOS nie instalują PWA).
 2. Udostępnij → **Dodaj do ekranu głównego**.
