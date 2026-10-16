@@ -1,5 +1,6 @@
 import { catalogFetch, readJson } from "../http";
 import type { CatalogItem } from "../types";
+import { findIgdbCover } from "./igdb";
 
 interface RawgGame {
   name?: string;
@@ -27,7 +28,8 @@ function fromGame(game: RawgGame): CatalogItem | null {
     artist_creator: game.developers?.[0]?.name || null,
     category: "game",
     subcategory: platform,
-    cover_url: game.background_image || null,
+    // RAWG's background_image is a screenshot, not box art; the cover comes from IGDB (withIgdbCover).
+    cover_url: null,
     metadata: {
       year: yearFromDate(game.released),
       platform,
@@ -36,6 +38,11 @@ function fromGame(game: RawgGame): CatalogItem | null {
     },
     source: "rawg",
   };
+}
+
+async function withIgdbCover(item: CatalogItem | null): Promise<CatalogItem | null> {
+  if (!item) return null;
+  return { ...item, cover_url: await findIgdbCover(item.title) };
 }
 
 export async function searchRawg(query: string): Promise<CatalogItem | null> {
@@ -53,7 +60,7 @@ export async function searchRawg(query: string): Promise<CatalogItem | null> {
   );
   const game = json?.results?.[0];
   if (!game) return null;
-  return fromGame(game);
+  return withIgdbCover(fromGame(game));
 }
 
 export async function searchRawgMany(query: string, limit = 5, offset = 0): Promise<CatalogItem[]> {
@@ -65,5 +72,6 @@ export async function searchRawgMany(query: string, limit = 5, offset = 0): Prom
   const json = await readJson<RawgSearchResponse>(
     await catalogFetch(`https://api.rawg.io/api/games?${params.toString()}`)
   );
-  return (json?.results ?? []).map(fromGame).filter((item): item is CatalogItem => Boolean(item));
+  const items = await Promise.all((json?.results ?? []).map((game) => withIgdbCover(fromGame(game))));
+  return items.filter((item): item is CatalogItem => Boolean(item));
 }

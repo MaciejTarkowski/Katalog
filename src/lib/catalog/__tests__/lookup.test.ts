@@ -378,7 +378,8 @@ describe("lookupCatalogItem", () => {
     expect(item?.artist_creator).toBe("CD Projekt RED");
     expect(item?.category).toBe("game");
     expect(item?.subcategory).toBe("PC");
-    expect(item?.cover_url).toBe("https://media.rawg.io/witcher3.jpg");
+    // RAWG only has screenshots, so without IGDB credentials there is no cover.
+    expect(item?.cover_url).toBeNull();
   });
 
   it("returns null when no provider matches", async () => {

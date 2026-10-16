@@ -58,6 +58,6 @@ PWA: `public/manifest.json` + `public/sw.js`, registered by `PwaRegister.tsx` in
 
 ## Environment
 
-`.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. `GEMINI_API_KEY` (without it scanning skips straight to OCR); optional `GEMINI_MODELS` (comma list, default `gemini-3.8-flash,gemini-3.5-flash,gemini-3.5-flash-lite`). Optional: `RAWG_API_KEY` (no game search without it), `DISCOGS_TOKEN` (works without, lower rate limits).
+`.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. `GEMINI_API_KEY` (without it scanning skips straight to OCR); optional `GEMINI_MODELS` (comma list, default `gemini-3.8-flash,gemini-3.5-flash,gemini-3.5-flash-lite`). Optional: `RAWG_API_KEY` (no game search without it), `DISCOGS_TOKEN` (works without, lower rate limits), `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET` (Twitch app credentials; game covers — without them games have no cover).
 
 `BUGS.MD` — the user's list of open bugs.
