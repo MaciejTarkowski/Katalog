@@ -182,6 +182,29 @@ describe("AddScreen", () => {
     expect(screen.queryByRole("button", { name: /Cyberiada/ })).not.toBeInTheDocument();
   });
 
+  it("keeps the scanning sparkle animation running instead of toggling it on/off", async () => {
+    mockScan.mockImplementation(() => new Promise(() => {})); // stays in "scanning"
+    render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+    pickFile();
+
+    const sparks = await screen.findAllByText("✦");
+    expect(sparks.length).toBeGreaterThan(0);
+    sparks.forEach((s) => expect(s.style.animation).toContain("kTwinkle"));
+  });
+
+  it("fades the sparkle field out via its wrapper instead of killing the animation when scanning ends", async () => {
+    mockScan.mockResolvedValue(SOLARIS);
+    render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+    pickFile();
+    await screen.findByRole("heading", { name: "Solaris" });
+
+    const sparks = screen.getAllByText("✦");
+    sparks.forEach((s) => expect(s.style.animation).toContain("kTwinkle"));
+    const wrapper = sparks[0].parentElement!;
+    expect(wrapper.style.opacity).toBe("0");
+    expect(wrapper.style.transition).toContain("opacity");
+  });
+
   it("loads the next page when the end of the list is reached", async () => {
     let reachEnd: () => void = () => {};
     vi.stubGlobal(

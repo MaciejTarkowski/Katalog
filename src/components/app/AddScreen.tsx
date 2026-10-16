@@ -157,24 +157,30 @@ function Stage({ phase, item, burstKey, onTap }: { phase: Phase; item: ScannedIt
         )}
       </button>
 
-      {SPARKS.map(([x, y, s], i) => (
-        <span
-          key={`sp${i}`}
-          aria-hidden="true"
-          className="absolute pointer-events-none leading-none"
-          style={{
-            left: `calc(50% + ${x}px)`,
-            top: `calc(50% + ${y}px)`,
-            fontSize: s,
-            color: i % 2 ? "var(--ac2)" : "#fff",
-            textShadow: "0 0 10px var(--ac)",
-            opacity: 0,
-            animation: scan ? `kTwinkle 1.6s ${i * 0.2}s ease-in-out infinite` : "none",
-          }}
-        >
-          ✦
-        </span>
-      ))}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none"
+        style={{ opacity: scan ? 1 : 0, transition: "opacity .4s" }}
+      >
+        {SPARKS.map(([x, y, s], i) => (
+          <span
+            key={`sp${i}`}
+            className="absolute pointer-events-none leading-none"
+            style={{
+              left: `calc(50% + ${x}px)`,
+              top: `calc(50% + ${y}px)`,
+              fontSize: s,
+              color: i % 2 ? "var(--ac2)" : "#fff",
+              textShadow: "0 0 10px var(--ac)",
+              // Kept running continuously (never toggled to "none") so hiding it via the
+              // wrapper's opacity transition fades it out instead of snapping mid-twinkle.
+              animation: `kTwinkle 1.6s ${i * 0.2}s ease-in-out infinite`,
+            }}
+          >
+            ✦
+          </span>
+        ))}
+      </div>
 
       {found &&
         burstKey > 0 &&
