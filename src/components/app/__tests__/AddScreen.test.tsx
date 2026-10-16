@@ -182,6 +182,18 @@ describe("AddScreen", () => {
     expect(screen.queryByRole("button", { name: /Cyberiada/ })).not.toBeInTheDocument();
   });
 
+  it("lets a long title's content scroll so the action buttons stay reachable", async () => {
+    const longTitle =
+      "Mamo, tato, co ty na to? O opiece, pielęgnacji i rozwoju Waszego maleństwa i jeszcze trochę więcej tekstu, żeby na pewno nie zmieścił się na ekranie";
+    mockScan.mockResolvedValue({ ...SOLARIS, title: longTitle });
+    render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+    pickFile();
+
+    expect(await screen.findByRole("heading", { name: longTitle })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Dodaj do kolekcji/ })).toBeInTheDocument();
+    expect(screen.getByTestId("add-screen-stage").className).toMatch(/overflow-y-auto/);
+  });
+
   it("keeps the scanning sparkle animation running instead of toggling it on/off", async () => {
     mockScan.mockImplementation(() => new Promise(() => {})); // stays in "scanning"
     render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);

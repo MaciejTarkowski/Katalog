@@ -424,7 +424,10 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
             "radial-gradient(circle,color-mix(in oklch,var(--ac) 30%,transparent) 0%,color-mix(in oklch,var(--ac2) 12%,transparent) 38%,transparent 66%)",
         }}
       />
-      <div className="absolute inset-x-0 top-[max(24px,env(safe-area-inset-top))] bottom-24 flex flex-col items-center justify-center gap-2.5">
+      <div
+        data-testid="add-screen-stage"
+        className="absolute inset-x-0 top-[max(24px,env(safe-area-inset-top))] bottom-24 flex flex-col items-center justify-center gap-2.5 overflow-y-auto scrollbar-none"
+      >
         <div className="h-16 flex items-end justify-center px-[30px] text-center">
           <div
             aria-live="polite"
