@@ -118,27 +118,37 @@ function Stage({
           key={`shimmer${scanKey}`}
           data-testid="stage-shimmer"
           aria-hidden="true"
-          className="absolute inset-0"
+          // 260% wide strip slid with transform (GPU) — animating background-position repainted
+          // every frame on the main thread and stuttered on phones.
+          className="absolute inset-y-0 left-0 w-[260%]"
           style={{
             background:
               "linear-gradient(110deg, transparent 30%, color-mix(in oklch, var(--ac) 30%, transparent) 46%, rgba(255,255,255,.18) 50%, color-mix(in oklch, var(--ac2) 30%, transparent) 54%, transparent 70%)",
-            backgroundSize: "260% 100%",
-            animation: "kShimmer 1.5s linear infinite",
+            animation: "kShimmerX 1.5s linear infinite",
+            willChange: "transform",
             opacity: scan ? 1 : 0,
             transition: "opacity .5s",
           }}
         />
         <span
+          // Full-height layer moved with translateY (90% of the stage height) so the line glides on
+          // the GPU instead of re-laying out `top` every frame; linear so it never stalls at the edges.
           key={`scanline${scanKey}`}
+          data-testid="stage-scanline-sweep"
           aria-hidden="true"
-          className="absolute left-2.5 right-2.5 h-0.5 rounded-sm bg-ac"
+          className="absolute inset-0"
           style={{
-            boxShadow: "0 0 14px 3px var(--ac)",
-            animation: "kScan 1.3s ease-in-out infinite alternate",
+            animation: "kScan 1.3s linear infinite alternate",
+            willChange: "transform",
             opacity: scan ? 1 : 0,
             transition: "opacity .4s",
           }}
-        />
+        >
+          <span
+            className="absolute left-2.5 right-2.5 top-[4%] h-0.5 rounded-sm bg-ac"
+            style={{ boxShadow: "0 0 14px 3px var(--ac)" }}
+          />
+        </span>
         {item && (
           <span
             aria-hidden="true"

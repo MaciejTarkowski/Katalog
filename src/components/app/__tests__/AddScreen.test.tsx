@@ -1,5 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { AddScreen } from "../AddScreen";
 
 const mockScan = vi.fn();
@@ -218,6 +220,23 @@ describe("AddScreen", () => {
     const secondShimmer = screen.getByTestId("stage-shimmer");
     expect(secondShimmer).not.toBe(firstShimmer);
     await screen.findByRole("heading", { name: "Solaris" }); // let the second scan settle
+  });
+
+  it("animates the scan line and shimmer with GPU transforms and no edge pauses", () => {
+    const css = readFileSync(resolve(__dirname, "../../../app/globals.css"), "utf8");
+    const keyframes = (name: string) => css.match(new RegExp(`@keyframes ${name} \\{(.*)\\}`))?.[1] ?? "";
+    render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+
+    // Animating top/background-position runs on the main thread and dropped frames on phones.
+    const sweep = screen.getByTestId("stage-scanline-sweep").style.animation;
+    const shimmer = screen.getByTestId("stage-shimmer").style.animation;
+    for (const anim of [sweep, shimmer]) {
+      const body = keyframes(anim.split(" ")[0]);
+      expect(body).toContain("transform");
+      expect(body).not.toMatch(/\b(top|background-position)\s*:/);
+    }
+    // ease-in-out made the line come to a halt at both edges before turning around.
+    expect(sweep).toContain("linear");
   });
 
   it("fades the sparkle field out via its wrapper instead of killing the animation when scanning ends", async () => {
