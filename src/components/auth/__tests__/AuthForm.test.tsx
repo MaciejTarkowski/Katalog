@@ -92,7 +92,10 @@ describe("AuthForm", () => {
       expect(mockSignUp).toHaveBeenCalledWith({
         email: "m@example.com",
         password: "password123",
-        options: { data: { display_name: "Maciek" } },
+        options: {
+          data: { display_name: "Maciek" },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
     });
   });

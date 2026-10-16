@@ -35,7 +35,10 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
           email,
           password,
           // Trigger `handle_new_user` (supabase/schema.sql) creates the profile from this.
-          options: { data: { display_name: displayName.trim() } },
+          options: {
+            data: { display_name: displayName.trim() },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
         });
 
         if (error) {
