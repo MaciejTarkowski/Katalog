@@ -177,6 +177,44 @@ describe("lookupCatalogItem", () => {
     expect(item?.artist_creator).toBe("Grubson");
   });
 
+  it("takes the cover from another release of the same album when the top hit has none", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes("musicbrainz.org")) {
+          return jsonResponse({
+            releases: [
+              {
+                id: "mbid-bare",
+                title: "The Dark Side of the Moon",
+                "artist-credit": [{ name: "Pink Floyd" }],
+                "release-group": { id: "rg-bare" },
+              },
+              {
+                id: "mbid-art",
+                title: "The Dark Side of the Moon",
+                "artist-credit": [{ name: "Pink Floyd" }],
+                "release-group": { id: "rg-art" },
+              },
+            ],
+          });
+        }
+        if (href.includes("coverartarchive.org") && init?.method === "HEAD") {
+          const ok = href.includes("mbid-art") || href.includes("rg-art");
+          return { ok, status: ok ? 200 : 404, json: async () => ({}) };
+        }
+        return jsonResponse({}, false, 404);
+      }
+    );
+
+    const item = await lookupCatalogItem({
+      query: "Pink Floyd The Dark Side of the Moon",
+      category: "music",
+    });
+    expect(item?.cover_url).toContain("coverartarchive.org");
+    expect(item?.cover_url).toMatch(/mbid-art|rg-art/);
+  });
+
   function musicBrainzQueries() {
     return (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls
       .map(([url]) => String(url))

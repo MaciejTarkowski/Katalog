@@ -38,10 +38,13 @@ async function coverExists(url: string): Promise<boolean> {
 }
 
 /** Release artwork first, then the release group's (shared by all editions of the album). */
-async function coverUrlForRelease(release: MusicBrainzRelease): Promise<string | null> {
+async function coverUrlForRelease(
+  release: MusicBrainzRelease,
+  skipGroup = false
+): Promise<string | null> {
   const candidates = [`https://coverartarchive.org/release/${release.id}/front-500`];
   const groupId = release["release-group"]?.id;
-  if (groupId) candidates.push(`https://coverartarchive.org/release-group/${groupId}/front-500`);
+  if (groupId && !skipGroup) candidates.push(`https://coverartarchive.org/release-group/${groupId}/front-500`);
 
   for (const url of candidates) {
     if (await coverExists(url)) return url;
@@ -49,9 +52,12 @@ async function coverUrlForRelease(release: MusicBrainzRelease): Promise<string |
   return null;
 }
 
-async function fromRelease(release: MusicBrainzRelease): Promise<CatalogItem | null> {
+async function fromRelease(
+  release: MusicBrainzRelease,
+  skipGroupCover = false
+): Promise<CatalogItem | null> {
   if (!release.title || !release.id) return null;
-  const cover_url = await coverUrlForRelease(release);
+  const cover_url = await coverUrlForRelease(release, skipGroupCover);
   const primaryType = release["release-group"]?.["primary-type"];
 
   return {
@@ -89,9 +95,22 @@ async function search(query: string): Promise<CatalogItem | null> {
   const json = await readJson<MusicBrainzSearchResponse>(
     await fetchReleases(`https://musicbrainz.org/ws/2/release/?${params.toString()}`)
   );
-  const release = json?.releases?.[0];
-  if (!release) return null;
-  return fromRelease(release);
+  const releases = json?.releases ?? [];
+  if (!releases.length) return null;
+
+  // The top hit is often a bare edition; take the first one that has artwork (best match order kept).
+  const checkedGroups = new Set<string>();
+  let first: CatalogItem | null = null;
+  for (const release of releases) {
+    const groupId = release["release-group"]?.id;
+    // Same album's other editions share the group artwork we already know is missing.
+    const groupChecked = groupId ? checkedGroups.has(groupId) : false;
+    if (groupId) checkedGroups.add(groupId);
+    const item = await fromRelease(release, groupChecked);
+    if (!first) first = item;
+    if (item?.cover_url) return item;
+  }
+  return first;
 }
 
 /** Strips Lucene syntax so user text cannot break the query. */
