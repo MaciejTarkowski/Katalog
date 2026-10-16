@@ -102,6 +102,12 @@ describe("AuthForm", () => {
     });
   });
 
+  it("shows the Google logo on the continue-with-Google button", () => {
+    render(<AuthForm />);
+    const button = screen.getByRole("button", { name: "Kontynuuj z Google" });
+    expect(button.querySelector("svg")).toBeInTheDocument();
+  });
+
   it("signs in with Google and returns through the auth callback", async () => {
     mockOAuth.mockResolvedValue({ error: null });
     render(<AuthForm />);
