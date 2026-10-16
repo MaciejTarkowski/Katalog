@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "app.vercel.katalog_theta_ecru.twa",
-        "sha256_cert_fingerprints": ["FE:F6:48:9C:0E:33:A1:FD:2A:8C:C6:93:F5:D9:2B:6A:D3:A4:A3:60:D8:74:BB:BE:89:EE:65:22:CB:84:E3:0F"]
+        "sha256_cert_fingerprints": ["D1:6A:75:89:46:B1:38:BE:19:BC:B8:E7:47:C5:8E:61:B2:E1:3A:B3:4D:06:FF:7D:CA:1A:99:D8:60:86:56:22"]
       }
     }]
