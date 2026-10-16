@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.katalog_theta_ecru.twa",
+        "sha256_cert_fingerprints": ["FE:F6:48:9C:0E:33:A1:FD:2A:8C:C6:93:F5:D9:2B:6A:D3:A4:A3:60:D8:74:BB:BE:89:EE:65:22:CB:84:E3:0F"]
+      }
+    }]
