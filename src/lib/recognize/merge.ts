@@ -16,6 +16,7 @@ export function mergeRecognition(recognized: RecognizedCover, item: CatalogItem 
     category: recognized.category,
     subcategory: recognized.subcategory ?? match?.subcategory ?? null,
     cover_url: match?.cover_url ?? null,
+    ...(recognized.box ? { cover_box: recognized.box } : {}),
     metadata: {
       ...(match?.metadata ?? {}),
       ...(recognized.subcategory && recognized.category === "game"

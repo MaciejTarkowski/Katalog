@@ -1,3 +1,4 @@
+import type { CropBox } from "../image/crop";
 import { CATALOG_CATEGORIES, isCatalogCategory, type CatalogCategory } from "../catalog/types";
 
 export interface RecognizedCover {
@@ -6,6 +7,8 @@ export interface RecognizedCover {
   category: CatalogCategory;
   /** e.g. "PS4", "Winyl", "CD" */
   subcategory: string | null;
+  /** Where the cover sits in the photo (fractions of the image); omitted when it fills the frame. */
+  box?: CropBox;
 }
 
 /** Every model was overloaded / rate-limited / unreachable — caller should fall back. */
@@ -30,6 +33,7 @@ Zwróć oficjalny tytuł i twórcę (autor / wykonawca / studio), nie opis zdję
 category: book, music, game, comic albo other.
 subcategory: dla gier platforma (np. "PS4", "PS5", "Xbox One", "Switch", "PC"), dla muzyki nośnik ("CD", "Winyl", "Kaseta"), inaczej null.
 Jeśli tekst jest częściowo zasłonięty, użyj wiedzy o znanych wydaniach.
+cover_box: prostokąt samej okładki na zdjęciu jako ułamki 0–1 całego zdjęcia (x, y = lewy górny róg, w, h = szerokość i wysokość); null, jeśli okładka wypełnia całe zdjęcie.
 Jeśli nie potrafisz rozpoznać konkretnej pozycji, ustaw recognized na false — nie wpisuj "brak" ani opisu zdjęcia.`;
 
 const RESPONSE_SCHEMA = {
@@ -41,9 +45,15 @@ const RESPONSE_SCHEMA = {
     creator: { type: "STRING", nullable: true },
     category: { type: "STRING", enum: [...CATALOG_CATEGORIES] },
     subcategory: { type: "STRING", nullable: true },
+    cover_box: {
+      type: "OBJECT",
+      nullable: true,
+      properties: { x: { type: "NUMBER" }, y: { type: "NUMBER" }, w: { type: "NUMBER" }, h: { type: "NUMBER" } },
+      required: ["x", "y", "w", "h"],
+    },
   },
   required: ["visible_text", "recognized", "title", "category"],
-  propertyOrdering: ["visible_text", "recognized", "title", "creator", "category", "subcategory"],
+  propertyOrdering: ["visible_text", "recognized", "title", "creator", "category", "subcategory", "cover_box"],
 };
 
 /** Fillers the model writes into required fields when it does not know the answer ("brak", "Nieznany tytuł"). */
@@ -60,6 +70,39 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 function optionalString(value: unknown): string | null {
   const text = typeof value === "string" ? value.trim() : "";
   return text && !PLACEHOLDER_RE.test(text) ? text : null;
+}
+
+const BOX_MARGIN = 0.02;
+const MIN_BOX_SIDE = 0.2;
+/** A box covering nearly the whole photo is not worth cropping. */
+const FULL_FRAME = 0.95;
+
+/** Validates the model's cover rectangle; adds a small margin so the cover is never clipped. */
+function parseBox(value: unknown): CropBox | undefined {
+  const raw = value as Record<string, unknown> | null | undefined;
+  const [x, y, w, h] = ["x", "y", "w", "h"].map((k) => raw?.[k]);
+  if (![x, y, w, h].every((n) => typeof n === "number" && Number.isFinite(n))) return undefined;
+
+  // Slight overshoot is rounding noise; a box far outside the photo is a wrong answer.
+  const tolerance = 0.05;
+  if (
+    (x as number) < -tolerance ||
+    (y as number) < -tolerance ||
+    (x as number) + (w as number) > 1 + tolerance ||
+    (y as number) + (h as number) > 1 + tolerance
+  ) {
+    return undefined;
+  }
+
+  const left = Math.max(0, (x as number) - BOX_MARGIN);
+  const top = Math.max(0, (y as number) - BOX_MARGIN);
+  const right = Math.min(1, (x as number) + (w as number) + BOX_MARGIN);
+  const bottom = Math.min(1, (y as number) + (h as number) + BOX_MARGIN);
+  const box = { x: left, y: top, w: right - left, h: bottom - top };
+
+  if (box.w < MIN_BOX_SIDE || box.h < MIN_BOX_SIDE) return undefined;
+  if (box.w >= FULL_FRAME && box.h >= FULL_FRAME) return undefined;
+  return box;
 }
 
 export function parseGeminiResponse(json: unknown): RecognizedCover | null {
@@ -79,11 +122,13 @@ export function parseGeminiResponse(json: unknown): RecognizedCover | null {
   const title = optionalString(parsed.title);
   if (!title) return null;
 
+  const box = parseBox(parsed.cover_box);
   return {
     title,
     creator: optionalString(parsed.creator),
     category: isCatalogCategory(parsed.category) ? parsed.category : "other",
     subcategory: optionalString(parsed.subcategory),
+    ...(box ? { box } : {}),
   };
 }
 

@@ -1,3 +1,4 @@
+import { cropImage, type CropBox } from "@/lib/image/crop";
 import { compressImage } from "@/lib/image/compress";
 import { detectBarcodeFromFile } from "@/lib/scan/barcode";
 import { recognizeCoverText } from "@/lib/scan/ocr";
@@ -11,6 +12,8 @@ export interface ScannedItemData {
   cover_url?: string | null;
   metadata: Record<string, unknown>;
   previewUrl?: string;
+  /** Where the cover sits in the photo, from vision recognition. */
+  cover_box?: CropBox;
 }
 
 export type ScanPhase = "compressing" | "barcode" | "recognize" | "ocr" | "lookup";
@@ -99,10 +102,14 @@ export async function scanCoverFile(
 ): Promise<ScannedItemData> {
   let previewUrl: string | undefined;
   let ocrText = "";
-  const withPreview = (data: ScannedItemData): ScannedItemData => ({
-    ...data,
-    previewUrl: previewUrl || data.previewUrl,
-  });
+  const withPreview = async (data: ScannedItemData): Promise<ScannedItemData> => {
+    let preview = previewUrl || data.previewUrl;
+    // The photo is used as the cover when no catalog cover exists: keep only the cover itself.
+    if (preview && data.cover_box && !data.cover_url) {
+      preview = await cropImage(preview, data.cover_box).catch(() => preview);
+    }
+    return { ...data, previewUrl: preview };
+  };
 
   try {
     onPhase("compressing");
@@ -113,12 +120,12 @@ export async function scanCoverFile(
     const barcode = await detectBarcodeFromFile(file);
     if (barcode) {
       onPhase("lookup");
-      return withPreview(await lookupMetadata({ ean: barcode }));
+      return await withPreview(await lookupMetadata({ ean: barcode }));
     }
 
     onPhase("recognize");
     const recognized = await recognizeWithVision(compressed.dataUrl);
-    if (recognized) return withPreview(recognized);
+    if (recognized) return await withPreview(recognized);
 
     onPhase("ocr");
     const cover = await recognizeCoverText(file);
@@ -129,7 +136,7 @@ export async function scanCoverFile(
 
     onPhase("lookup");
     const data = await lookupMetadata({ query: ocrText, category: cover.category });
-    return withPreview(cover.subcategory ? { ...data, subcategory: cover.subcategory } : data);
+    return await withPreview(cover.subcategory ? { ...data, subcategory: cover.subcategory } : data);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Wystąpił błąd podczas skanowania.";
     throw new ScanError(message, ocrText, previewUrl);

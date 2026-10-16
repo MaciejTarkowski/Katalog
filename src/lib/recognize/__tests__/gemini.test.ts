@@ -146,4 +146,30 @@ describe("parseGeminiResponse", () => {
       parseGeminiResponse(wrap(JSON.stringify({ title: "X", category: "toy" })))?.category
     ).toBe("other");
   });
+
+  describe("cover_box", () => {
+    const parseBox = (cover_box: unknown) =>
+      parseGeminiResponse(wrap(JSON.stringify({ title: "X", category: "book", cover_box })))?.box;
+
+    it("returns the box with a small margin, clamped to the photo", () => {
+      const box = parseBox({ x: 0.2, y: 0.1, w: 0.6, h: 0.8 })!;
+      expect(box.x).toBeCloseTo(0.18);
+      expect(box.y).toBeCloseTo(0.08);
+      expect(box.w).toBeCloseTo(0.64);
+      expect(box.h).toBeCloseTo(0.84);
+
+      const edge = parseBox({ x: 0.01, y: 0.5, w: 0.4, h: 0.5 })!;
+      expect(edge.x).toBe(0);
+      expect(edge.y + edge.h).toBeLessThanOrEqual(1);
+    });
+
+    it("ignores missing, malformed, tiny or full-frame boxes", () => {
+      expect(parseBox(undefined)).toBeUndefined();
+      expect(parseBox(null)).toBeUndefined();
+      expect(parseBox({ x: "a", y: 0, w: 1, h: 1 })).toBeUndefined();
+      expect(parseBox({ x: 0.4, y: 0.4, w: 0.05, h: 0.05 })).toBeUndefined();
+      expect(parseBox({ x: 0, y: 0, w: 1, h: 1 })).toBeUndefined();
+      expect(parseBox({ x: 0.5, y: 0.5, w: 0.9, h: 0.9 })).toBeUndefined();
+    });
+  });
 });
