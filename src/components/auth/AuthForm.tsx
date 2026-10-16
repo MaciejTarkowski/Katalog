@@ -70,6 +70,24 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
     }
   };
 
+  const handleGoogle = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      // On success the browser is redirected to Google, so there is nothing more to do here.
+      if (error) setErrorMsg(error.message);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Wystąpił nieoczekiwany błąd.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="w-full flex flex-col gap-4">
       <div className="flex flex-col gap-1">
@@ -81,6 +99,20 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
             ? "Zacznij bezpiecznie katalogować swoje zbiory"
             : "Zarządzaj swoją kolekcją w chmurze"}
         </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleGoogle}
+        disabled={loading}
+        className="h-[54px] rounded-2xl bg-bg border border-s2 text-tx text-[17px] font-semibold disabled:opacity-50 transition-opacity"
+      >
+        Kontynuuj z Google
+      </button>
+      <div className="flex items-center gap-3 text-xs text-mu" aria-hidden="true">
+        <span className="flex-1 h-px bg-s2" />
+        lub
+        <span className="flex-1 h-px bg-s2" />
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

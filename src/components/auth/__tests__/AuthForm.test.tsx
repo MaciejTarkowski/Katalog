@@ -4,12 +4,14 @@ import { AuthForm } from "../AuthForm";
 
 const mockSignIn = vi.fn();
 const mockSignUp = vi.fn();
+const mockOAuth = vi.fn();
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     auth: {
       signInWithPassword: mockSignIn,
       signUp: mockSignUp,
+      signInWithOAuth: mockOAuth,
     },
   }),
 }));
@@ -98,5 +100,25 @@ describe("AuthForm", () => {
         },
       });
     });
+  });
+
+  it("signs in with Google and returns through the auth callback", async () => {
+    mockOAuth.mockResolvedValue({ error: null });
+    render(<AuthForm />);
+    fireEvent.click(screen.getByRole("button", { name: "Kontynuuj z Google" }));
+
+    await waitFor(() => {
+      expect(mockOAuth).toHaveBeenCalledWith({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+    });
+  });
+
+  it("shows Google button in sign-up mode too and reports OAuth errors", async () => {
+    mockOAuth.mockResolvedValue({ error: { message: "Provider is not enabled" } });
+    render(<AuthForm initialMode="signup" />);
+    fireEvent.click(screen.getByRole("button", { name: "Kontynuuj z Google" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Provider is not enabled");
   });
 });
