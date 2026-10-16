@@ -31,7 +31,19 @@ function resultKey(r: ScannedItemData, i: number) {
   return `${r.title}|${r.artist_creator ?? ""}|${r.category}|${i}`;
 }
 
-function Stage({ phase, item, burstKey, onTap }: { phase: Phase; item: ScannedItemData | null; burstKey: number; onTap: () => void }) {
+function Stage({
+  phase,
+  item,
+  burstKey,
+  scanKey,
+  onTap,
+}: {
+  phase: Phase;
+  item: ScannedItemData | null;
+  burstKey: number;
+  scanKey: number;
+  onTap: () => void;
+}) {
   const idle = phase === "idle";
   const scan = phase === "scanning";
   const found = phase === "found";
@@ -100,6 +112,11 @@ function Stage({ phase, item, burstKey, onTap }: { phase: Phase; item: ScannedIt
           photo_camera
         </span>
         <span
+          // Remounted on every new scan (scanKey) so the sweep always restarts from its first
+          // frame — left running continuously it kept whatever point it happened to be at in its
+          // loop, so each scan appeared to start mid-sweep instead of from the left edge.
+          key={`shimmer${scanKey}`}
+          data-testid="stage-shimmer"
           aria-hidden="true"
           className="absolute inset-0"
           style={{
@@ -112,6 +129,7 @@ function Stage({ phase, item, burstKey, onTap }: { phase: Phase; item: ScannedIt
           }}
         />
         <span
+          key={`scanline${scanKey}`}
           aria-hidden="true"
           className="absolute left-2.5 right-2.5 h-0.5 rounded-sm bg-ac"
           style={{
@@ -220,6 +238,7 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
   const [label, setLabel] = useState("");
   const [item, setItem] = useState<ScannedItemData | null>(null);
   const [burstKey, setBurstKey] = useState(0);
+  const [scanKey, setScanKey] = useState(0);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -274,13 +293,18 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
     fileRef.current?.click();
   };
 
+  const startScanning = () => {
+    setScanKey((k) => k + 1);
+    setPhase("scanning");
+  };
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     setItem(null);
     setNotice(null);
-    setPhase("scanning");
+    startScanning();
     try {
       const data = await scanCoverFile(file, (p) => setLabel(PHASE_LABEL[p]));
       showFound(data);
@@ -362,7 +386,7 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
     setDialog(null);
     setItem(null);
     later(() => {
-      setPhase("scanning");
+      startScanning();
       setLabel(FAST_LABELS[0]);
       FAST_LABELS.slice(1).forEach((l, i) => later(() => setLabel(l), 450 * (i + 1)));
       later(() => showFound(picked), 1700);
@@ -438,7 +462,7 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
           </div>
         </div>
 
-        <Stage phase={phase} item={item} burstKey={burstKey} onTap={pickPhoto} />
+        <Stage phase={phase} item={item} burstKey={burstKey} scanKey={scanKey} onTap={pickPhoto} />
 
         <div className="min-h-[178px] w-full flex flex-col items-center gap-1.5 px-6">
           {notice && (

@@ -204,6 +204,22 @@ describe("AddScreen", () => {
     sparks.forEach((s) => expect(s.style.animation).toContain("kTwinkle"));
   });
 
+  it("restarts the scan shimmer from scratch on every new scan instead of resuming mid-loop", async () => {
+    mockScan.mockResolvedValue(SOLARIS);
+    render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+    pickFile();
+    await screen.findByRole("heading", { name: "Solaris" });
+    const firstShimmer = screen.getByTestId("stage-shimmer");
+
+    fireEvent.click(screen.getByRole("button", { name: "Odrzuć" }));
+    fireEvent.click(screen.getByRole("button", { name: /Zeskanuj ponownie/ }));
+    pickFile();
+
+    const secondShimmer = screen.getByTestId("stage-shimmer");
+    expect(secondShimmer).not.toBe(firstShimmer);
+    await screen.findByRole("heading", { name: "Solaris" }); // let the second scan settle
+  });
+
   it("fades the sparkle field out via its wrapper instead of killing the animation when scanning ends", async () => {
     mockScan.mockResolvedValue(SOLARIS);
     render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
