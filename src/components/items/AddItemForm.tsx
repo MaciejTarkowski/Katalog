@@ -6,7 +6,10 @@ import { CoverScanner, ScannedItemData } from "./CoverScanner";
 import { uploadCoverImage } from "@/lib/storage/upload";
 
 interface AddItemFormProps {
-  onSubmit: (item: Omit<ItemInsert, "id" | "user_id" | "created_at" | "updated_at">) => Promise<boolean>;
+  /** Resolves to null on success, or the error message to show. */
+  onSubmit: (
+    item: Omit<ItemInsert, "id" | "user_id" | "created_at" | "updated_at">
+  ) => Promise<string | null>;
   onCancel?: () => void;
 }
 
@@ -66,7 +69,7 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
       }
     }
 
-    const success = await onSubmit({
+    const addError = await onSubmit({
       title: title.trim(),
       artist_creator: artistCreator.trim() || null,
       category,
@@ -77,7 +80,7 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
 
     setSubmitting(false);
 
-    if (success) {
+    if (!addError) {
       setTitle("");
       setArtistCreator("");
       setSubcategory("");
@@ -85,7 +88,7 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
       setMetadata({});
       setAiSuccessMsg(null);
     } else {
-      setErrorMsg("Nie udało się zapisać elementu.");
+      setErrorMsg(addError);
     }
   };
 

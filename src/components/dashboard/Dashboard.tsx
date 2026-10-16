@@ -103,13 +103,14 @@ export function Dashboard() {
     setDetail(null);
   };
 
-  const handleAddItem = async (item: NewItem): Promise<boolean> => {
+  /** Returns null on success, or the error message to show the user. */
+  const handleAddItem = async (item: NewItem): Promise<string | null> => {
     const { data, error } = await addItem(item);
     if (error || !data) {
-      return false;
+      return error || "Nie udało się zapisać elementu.";
     }
     setItems((prev) => [data, ...prev]);
-    return true;
+    return null;
   };
 
   const handleDeleteItem = async (item: Item) => {

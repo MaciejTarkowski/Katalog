@@ -62,7 +62,7 @@ describe("AddScreen", () => {
 
   it("scans a cover and adds the found item, uploading the photo as cover", async () => {
     mockScan.mockResolvedValue(SOLARIS);
-    const onAdd = vi.fn().mockResolvedValue(true);
+    const onAdd = vi.fn().mockResolvedValue(null);
     const onToast = vi.fn();
     render(<AddScreen onAdd={onAdd} onToast={onToast} />);
 
@@ -90,7 +90,7 @@ describe("AddScreen", () => {
 
   it("shows an error and keeps the item when saving fails", async () => {
     mockScan.mockResolvedValue({ ...SOLARIS, cover_url: "https://covers.example/s.jpg" });
-    const onAdd = vi.fn().mockResolvedValue(false);
+    const onAdd = vi.fn().mockResolvedValue("Nie udało się zapisać elementu.");
     render(<AddScreen onAdd={onAdd} onToast={vi.fn()} />);
     pickFile();
 

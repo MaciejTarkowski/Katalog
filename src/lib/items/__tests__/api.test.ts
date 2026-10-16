@@ -124,8 +124,27 @@ describe("Items API", () => {
     expect(result.data).toBeNull();
   });
 
+  it("addItem rejects a duplicate title for the same user", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
+    currentQueryResult = { data: [{ title: "  Dune  " }], error: null };
+
+    const result = await addItem({
+      title: "dune",
+      artist_creator: "Frank Herbert",
+      category: "book",
+      subcategory: "sci-fi",
+      cover_url: null,
+      metadata: {},
+    });
+
+    expect(result.data).toBeNull();
+    expect(result.error).toBe("„dune” jest już w Twoim katalogu.");
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
   it("addItem inserts and returns item when user is authenticated", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
+    currentQueryResult = { data: [], error: null };
     const insertedItem = {
       id: "item-1",
       user_id: "user-123",

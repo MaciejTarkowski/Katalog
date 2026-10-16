@@ -99,6 +99,22 @@ export async function addItem(
       return { data: null, error: "Użytkownik nie jest zalogowany" };
     }
 
+    const normalizedTitle = item.title.trim().toLowerCase();
+    const { data: existing, error: existingError } = await supabase
+      .from("items")
+      .select("title")
+      .eq("user_id", user.id);
+
+    if (existingError) {
+      return { data: null, error: existingError.message };
+    }
+    const isDuplicate = ((existing as { title: string }[] | null) || []).some(
+      (row) => row.title.trim().toLowerCase() === normalizedTitle
+    );
+    if (isDuplicate) {
+      return { data: null, error: `„${item.title.trim()}” jest już w Twoim katalogu.` };
+    }
+
     const itemToInsert = {
       ...item,
       user_id: user.id,

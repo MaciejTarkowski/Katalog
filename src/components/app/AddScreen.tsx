@@ -12,7 +12,8 @@ import { AddItemForm } from "@/components/items/AddItemForm";
 export type NewItem = Omit<ItemInsert, "id" | "user_id" | "created_at" | "updated_at">;
 
 interface AddScreenProps {
-  onAdd: (item: NewItem) => Promise<boolean>;
+  /** Resolves to null on success, or the error message to show. */
+  onAdd: (item: NewItem) => Promise<string | null>;
   onToast: (message: string) => void;
 }
 
@@ -381,7 +382,7 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
       }
       coverUrl = publicUrl;
     }
-    const ok = await onAdd({
+    const addError = await onAdd({
       title: item.title,
       artist_creator: item.artist_creator,
       category: item.category,
@@ -390,8 +391,8 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
       metadata: item.metadata ?? {},
     });
     setSaving(false);
-    if (!ok) {
-      setNotice("Nie udało się zapisać elementu.");
+    if (addError) {
+      setNotice(addError);
       return;
     }
     onToast(`Dodano „${item.title}” do kolekcji`);
@@ -592,13 +593,13 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
           {dialog === "manual" && (
             <AddItemForm
               onSubmit={async (data) => {
-                const ok = await onAdd(data);
-                if (ok) {
+                const addError = await onAdd(data);
+                if (!addError) {
                   onToast(`Dodano „${data.title}” do kolekcji`);
                   setDialog(null);
                   reset();
                 }
-                return ok;
+                return addError;
               }}
               onCancel={() => setDialog(null)}
             />

@@ -22,7 +22,7 @@ describe("AddItemForm", () => {
   });
 
   it("submits form data and calls onSubmit", async () => {
-    const onSubmit = vi.fn().mockResolvedValue(true);
+    const onSubmit = vi.fn().mockResolvedValue(null);
     render(<AddItemForm onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText("Tytuł *"), {
@@ -52,7 +52,7 @@ describe("AddItemForm", () => {
   });
 
   it("shows error when submission fails", async () => {
-    const onSubmit = vi.fn().mockResolvedValue(false);
+    const onSubmit = vi.fn().mockResolvedValue("Nie udało się zapisać elementu.");
     render(<AddItemForm onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText("Tytuł *"), {
@@ -74,7 +74,7 @@ describe("AddItemForm", () => {
   });
 
   it("uploads dataUrl cover image to storage on submit", async () => {
-    const onSubmit = vi.fn().mockResolvedValue(true);
+    const onSubmit = vi.fn().mockResolvedValue(null);
     render(<AddItemForm onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText("Tytuł *"), {
@@ -101,7 +101,7 @@ describe("AddItemForm", () => {
       error: "Bucket 'covers' not found or permission denied",
     });
 
-    const onSubmit = vi.fn().mockResolvedValue(true);
+    const onSubmit = vi.fn().mockResolvedValue(null);
     render(<AddItemForm onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText("Tytuł *"), {
