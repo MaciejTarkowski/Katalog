@@ -99,20 +99,30 @@ export async function addItem(
       return { data: null, error: "Użytkownik nie jest zalogowany" };
     }
 
+    // Same title can legitimately appear more than once under a different subcategory
+    // (e.g. a game on PS5 vs PC, a book in hardcover vs paperback) — only an exact match
+    // of title + category + subcategory counts as a duplicate.
     const normalizedTitle = item.title.trim().toLowerCase();
+    const normalizedSubcategory = (item.subcategory || "").trim().toLowerCase();
     const { data: existing, error: existingError } = await supabase
       .from("items")
-      .select("title")
+      .select("title, category, subcategory")
       .eq("user_id", user.id);
 
     if (existingError) {
       return { data: null, error: existingError.message };
     }
-    const isDuplicate = ((existing as { title: string }[] | null) || []).some(
-      (row) => row.title.trim().toLowerCase() === normalizedTitle
+    const isDuplicate = (
+      (existing as { title: string; category: string; subcategory: string | null }[] | null) || []
+    ).some(
+      (row) =>
+        row.title.trim().toLowerCase() === normalizedTitle &&
+        row.category === item.category &&
+        (row.subcategory || "").trim().toLowerCase() === normalizedSubcategory
     );
     if (isDuplicate) {
-      return { data: null, error: `„${item.title.trim()}” jest już w Twoim katalogu.` };
+      const withSub = normalizedSubcategory ? ` (${item.subcategory!.trim()})` : "";
+      return { data: null, error: `„${item.title.trim()}”${withSub} jest już w Twoim katalogu.` };
     }
 
     const itemToInsert = {

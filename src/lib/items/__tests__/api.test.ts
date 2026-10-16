@@ -124,9 +124,9 @@ describe("Items API", () => {
     expect(result.data).toBeNull();
   });
 
-  it("addItem rejects a duplicate title for the same user", async () => {
+  it("addItem rejects a duplicate title with the same category and subcategory", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
-    currentQueryResult = { data: [{ title: "  Dune  " }], error: null };
+    currentQueryResult = { data: [{ title: "  Dune  ", category: "book", subcategory: "Sci-Fi" }], error: null };
 
     const result = await addItem({
       title: "dune",
@@ -138,8 +138,37 @@ describe("Items API", () => {
     });
 
     expect(result.data).toBeNull();
-    expect(result.error).toBe("„dune” jest już w Twoim katalogu.");
+    expect(result.error).toBe("„dune” (sci-fi) jest już w Twoim katalogu.");
     expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("addItem allows the same title under a different subcategory (e.g. a game on another platform)", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
+    currentQueryResult = {
+      data: [{ title: "Marvel's Spider-Man", category: "game", subcategory: "PS4" }],
+      error: null,
+    };
+    const insertedItem = {
+      id: "item-2",
+      user_id: "user-123",
+      title: "Marvel's Spider-Man",
+      category: "game",
+      subcategory: "PS5",
+      metadata: {},
+    };
+    mockSingle.mockResolvedValue({ data: insertedItem, error: null });
+
+    const result = await addItem({
+      title: "Marvel's Spider-Man",
+      artist_creator: "Insomniac Games",
+      category: "game",
+      subcategory: "PS5",
+      cover_url: null,
+      metadata: {},
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.data).toEqual(insertedItem);
   });
 
   it("addItem inserts and returns item when user is authenticated", async () => {
