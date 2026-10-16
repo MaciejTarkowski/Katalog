@@ -31,6 +31,9 @@ function resultKey(r: ScannedItemData, i: number) {
   return `${r.title}|${r.artist_creator ?? ""}|${r.category}|${i}`;
 }
 
+/** Stage height while scanning / showing a result (px). */
+const SCAN_H = 264;
+
 function Stage({
   phase,
   item,
@@ -48,7 +51,7 @@ function Stage({
   const scan = phase === "scanning";
   const found = phase === "found";
   const W = idle ? 188 : 176;
-  const H = idle ? 188 : 264;
+  const H = idle ? 188 : SCAN_H;
   const R = idle ? 94 : 16;
   const ease = "cubic-bezier(.65,0,.2,1)";
   const cover = item ? item.cover_url || item.previewUrl : null;
@@ -131,22 +134,24 @@ function Stage({
           }}
         />
         <span
-          // Full-height layer moved with translateY (stage height minus the 2px line, so it touches
-          // both the top and bottom edge) so the line glides on
-          // the GPU instead of re-laying out `top` every frame; linear so it never stalls at the edges.
+          // Layer moved with translateY so the line glides on the GPU instead of re-laying out `top`
+          // every frame (same 4% → 94% path as before). Fixed to the scanning stage height rather than
+          // inset-0: Safari resolves translateY(%) once at animation start, while the stage is still
+          // growing from the idle circle, so a stretching layer made the line stop short of the bottom.
           key={`scanline${scanKey}`}
           data-testid="stage-scanline-sweep"
           aria-hidden="true"
-          className="absolute inset-0"
+          className="absolute inset-x-0 top-0"
           style={{
-            animation: "kScan 1.3s linear infinite alternate",
+            height: SCAN_H,
+            animation: "kScan 1.3s ease-in-out infinite alternate",
             willChange: "transform",
             opacity: scan ? 1 : 0,
             transition: "opacity .4s",
           }}
         >
           <span
-            className="absolute left-2.5 right-2.5 top-0 h-0.5 rounded-sm bg-ac"
+            className="absolute left-2.5 right-2.5 top-[4%] h-0.5 rounded-sm bg-ac"
             style={{ boxShadow: "0 0 14px 3px var(--ac)" }}
           />
         </span>

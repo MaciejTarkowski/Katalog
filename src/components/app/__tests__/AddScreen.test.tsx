@@ -222,7 +222,7 @@ describe("AddScreen", () => {
     await screen.findByRole("heading", { name: "Solaris" }); // let the second scan settle
   });
 
-  it("animates the scan line and shimmer with GPU transforms and no edge pauses", () => {
+  it("animates the scan line and shimmer with GPU transforms", () => {
     const css = readFileSync(resolve(__dirname, "../../../app/globals.css"), "utf8");
     const keyframes = (name: string) => css.match(new RegExp(`@keyframes ${name} \\{(.*)\\}`))?.[1] ?? "";
     render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
@@ -235,20 +235,29 @@ describe("AddScreen", () => {
       expect(body).toContain("transform");
       expect(body).not.toMatch(/\b(top|background-position)\s*:/);
     }
-    // ease-in-out made the line come to a halt at both edges before turning around.
-    expect(sweep).toContain("linear");
   });
 
-  it("sweeps the scan line all the way from the top edge to the bottom edge", () => {
+  it("sweeps the scan line along the original 4%–94% path over a fixed-height layer", async () => {
     const css = readFileSync(resolve(__dirname, "../../../app/globals.css"), "utf8");
+    let finish: (v: unknown) => void = () => {};
+    mockScan.mockReturnValue(new Promise((r) => (finish = r)));
     render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
-    const line = screen.getByTestId("stage-scanline-sweep").firstElementChild as HTMLElement;
+    pickFile();
 
-    // Starts flush with the top edge and stops with its bottom flush with the bottom edge
-    // (a full 100% shift would push the 2px line out of the clipped stage).
-    expect(line.className).toMatch(/\btop-0\b/);
-    expect(line.className).toMatch(/\bh-0\.5\b/);
-    expect(css).toMatch(/@keyframes kScan \{[^}]*\}[^}]*translateY\(calc\(100% - 2px\)\)/);
+    const stage = screen.getByRole("button", { name: "Skanowanie" });
+    const sweep = screen.getByTestId("stage-scanline-sweep");
+    const line = sweep.firstElementChild as HTMLElement;
+    // Safari resolves translateY(%) once when the animation starts — the scan starts while the stage
+    // is still growing from the idle circle, so a layer sized by inset-0 stopped short of the bottom.
+    // A fixed pixel height equal to the scanning stage keeps the sweep length stable.
+    expect(sweep.style.height).toBe(stage.style.height);
+    expect(sweep.className).not.toMatch(/\binset-0\b/);
+    // Same path as the original `top: 4% → 94%` sweep (video2.mp4): starts at 4%, moves by 90%.
+    expect(line.className).toMatch(/\btop-\[4%\]/);
+    expect(css).toMatch(/@keyframes kScan \{[^}]*translateY\(0\)[^}]*\}[^}]*translateY\(90%\)/);
+    expect(sweep.style.animation).toBe("kScan 1.3s ease-in-out infinite alternate");
+
+    await act(async () => finish(SOLARIS));
   });
 
   it("fades the sparkle field out via its wrapper instead of killing the animation when scanning ends", async () => {
