@@ -42,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Sign in with Apple private key (docs/APPLE_AUTH.md)
+*.p8

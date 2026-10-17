@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Welcome } from "../Welcome";
 
 vi.mock("@/lib/supabase/client", () => ({

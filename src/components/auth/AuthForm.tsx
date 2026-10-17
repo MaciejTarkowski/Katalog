@@ -31,6 +31,17 @@ function GoogleLogo() {
   );
 }
 
+function AppleLogo() {
+  return (
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 384 512" fill="currentColor" className="flex-none -mt-0.5">
+      <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+    </svg>
+  );
+}
+
+const OAUTH_BUTTON =
+  "h-[54px] rounded-2xl bg-bg border border-s2 text-tx text-[17px] font-semibold disabled:opacity-50 transition-opacity flex items-center justify-center gap-2.5";
+
 const INPUT =
   "w-full h-[50px] px-4 rounded-[14px] bg-bg border border-s2 text-base text-tx placeholder:text-mu/70 outline-none focus:border-ac transition-colors";
 const LABEL = "flex flex-col gap-1.5 text-[13px] font-medium text-mu";
@@ -93,16 +104,16 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
     }
   };
 
-  const handleGoogle = async () => {
+  const handleOAuth = async (provider: "google" | "apple") => {
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+        provider,
         options: { redirectTo: `${window.location.origin}/auth/callback` },
       });
-      // On success the browser is redirected to Google, so there is nothing more to do here.
+      // On success the browser is redirected to the provider, so there is nothing more to do here.
       if (error) setErrorMsg(error.message);
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Wystąpił nieoczekiwany błąd.");
@@ -124,14 +135,13 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={handleGoogle}
-        disabled={loading}
-        className="h-[54px] rounded-2xl bg-bg border border-s2 text-tx text-[17px] font-semibold disabled:opacity-50 transition-opacity flex items-center justify-center gap-2.5"
-      >
+      <button type="button" onClick={() => handleOAuth("google")} disabled={loading} className={OAUTH_BUTTON}>
         <GoogleLogo />
         Kontynuuj z Google
+      </button>
+      <button type="button" onClick={() => handleOAuth("apple")} disabled={loading} className={OAUTH_BUTTON}>
+        <AppleLogo />
+        Kontynuuj z Apple
       </button>
       <div className="flex items-center gap-3 text-xs text-mu" aria-hidden="true">
         <span className="flex-1 h-px bg-s2" />
