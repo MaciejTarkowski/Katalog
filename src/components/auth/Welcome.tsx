@@ -5,19 +5,40 @@ import { Logo, Sheet } from "@/components/ui/primitives";
 import { tileBackground } from "@/lib/items/display";
 import { AuthForm } from "./AuthForm";
 
-/** Classic titles with Open Library covers for the welcome mosaic. */
-const MOSAIC_ISBNS = [
-  "9780593135204", "9781401245252", "9780441172719", "9780316029186", "9780394747231",
-  "9780547928227", "9780375714573", "9780441569595", "9781607066019", "9780451524935",
-  "9781451673319", "9781401207526", "9780307387899", "9780553418026",
+const book = (isbn: string) => `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`;
+const game = (steamAppId: number) =>
+  `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_600x900.jpg`;
+const album = (releaseGroupMbid: string) =>
+  `https://coverartarchive.org/release-group/${releaseGroupMbid}/front-250`;
+
+/** Well-known books, games and albums for the welcome mosaic, interleaved so every column mixes them. */
+const MOSAIC_COVERS = [
+  book("9780441172719"), // Dune
+  game(292030), // The Witcher 3
+  album("f5093c06-23e3-404f-aeaa-40f72885ee3a"), // The Dark Side of the Moon
+  book("9780547928227"), // The Hobbit
+  game(1174180), // Red Dead Redemption 2
+  album("9162580e-5df4-32de-80cc-f45a8d8a9b1d"), // Abbey Road
+  book("9780451524935"), // 1984
+  game(1245620), // Elden Ring
+  album("f32fab67-77dd-3937-addc-9062e28e4c37"), // Thriller
+  book("9780316029186"), // The Last Wish
+  game(271590), // GTA V
+  album("1b022e01-4da6-387b-8658-8678046e4cef"), // Nevermind
+  book("9781451673319"), // Fahrenheit 451
+  game(1593500), // God of War
+  album("416bb5e5-c7d1-3977-8fd7-7c9daf6c2be6"), // Rumours
+  book("9780553418026"), // The Martian
+  game(1091500), // Cyberpunk 2077
+  album("d3bc1a64-7561-3787-b680-0003aa50f8f1"), // Back in Black
 ];
 
 const INTRO_KEY = "katalog-intro-seen";
 
 function Mosaic() {
   const cols = [0, 1, 2, 3].map((ci) => {
-    const list = MOSAIC_ISBNS.filter((_, i) => i % 4 === ci).concat(
-      MOSAIC_ISBNS.filter((_, i) => (i + 1) % 4 === ci).slice(0, 2)
+    const list = MOSAIC_COVERS.filter((_, i) => i % 4 === ci).concat(
+      MOSAIC_COVERS.filter((_, i) => (i + 1) % 4 === ci).slice(0, 2)
     );
     return (
       <div
@@ -28,15 +49,15 @@ function Mosaic() {
           animation: `kDrift ${46 + ci * 7}s linear infinite ${ci % 2 ? "reverse" : ""}`,
         }}
       >
-        {list.concat(list).map((isbn, i) => (
+        {list.concat(list).map((src, i) => (
           <div
             key={i}
             className="w-28 h-[168px] flex-none rounded-[10px] overflow-hidden shadow-[0_0_0_1px_rgba(255,255,255,.06)]"
-            style={{ background: tileBackground(isbn) }}
+            style={{ background: tileBackground(src) }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`}
+              src={src}
               alt=""
               onError={(e) => (e.currentTarget.style.opacity = "0")}
               className="w-full h-full object-cover block"
