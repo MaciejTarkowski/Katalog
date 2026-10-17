@@ -3,6 +3,7 @@ import { compressImage } from "@/lib/image/compress";
 import { detectBarcodeFromFile } from "@/lib/scan/barcode";
 import { recognizeCoverText } from "@/lib/scan/ocr";
 import { SEARCH_LIMIT } from "@/lib/catalog/searchConfig";
+import type { RecognizedCover } from "@/lib/recognize/gemini";
 
 export interface ScannedItemData {
   title: string;
@@ -14,6 +15,11 @@ export interface ScannedItemData {
   previewUrl?: string;
   /** Where the cover sits in the photo, from vision recognition. */
   cover_box?: CropBox;
+  /**
+   * Set while the catalog cover and details are still coming: what vision recognized, to be
+   * passed on by `completeRecognition`.
+   */
+  recognized?: RecognizedCover;
 }
 
 export type ScanPhase = "compressing" | "barcode" | "recognize" | "ocr" | "lookup";
@@ -47,9 +53,32 @@ async function recognizeWithVision(imageDataUrl: string): Promise<ScannedItemDat
       body: JSON.stringify({ image: imageDataUrl }),
     });
     const json = await res.json();
-    return res.ok && json.success ? (json.data as ScannedItemData) : null;
+    if (!res.ok || !json.success) return null;
+    const data = json.data as ScannedItemData;
+    return json.recognized ? { ...data, recognized: json.recognized as RecognizedCover } : data;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Second step of a vision scan: adds the catalog cover and details to a result that still has
+ * `recognized`. Never throws — when the catalogs fail, the recognition is kept as it is.
+ */
+export async function completeRecognition(data: ScannedItemData): Promise<ScannedItemData> {
+  const { recognized, ...known } = data;
+  if (!recognized) return known;
+  try {
+    const res = await fetch("/api/catalog/enrich", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recognized }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) return known;
+    return { ...(json.data as ScannedItemData), previewUrl: known.previewUrl };
+  } catch {
+    return known;
   }
 }
 

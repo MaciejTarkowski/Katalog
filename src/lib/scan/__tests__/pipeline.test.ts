@@ -9,7 +9,7 @@ vi.mock("@/lib/scan/ocr", () => ({ recognizeCoverText: vi.fn() }));
 
 import { recognizeCoverText } from "@/lib/scan/ocr";
 import { cropImage } from "@/lib/image/crop";
-import { ScanError, scanCoverFile } from "../pipeline";
+import { ScanError, completeRecognition, scanCoverFile } from "../pipeline";
 
 const mockOcr = recognizeCoverText as unknown as ReturnType<typeof vi.fn>;
 const file = new File(["x"], "cover.jpg", { type: "image/jpeg" });
@@ -74,5 +74,62 @@ describe("scanCoverFile", () => {
       reply(200, { success: true, data: { title: "Solaris", artist_creator: null, category: "book", subcategory: null, cover_url: null, metadata: {}, cover_box: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 } } })
     );
     expect((await scanCoverFile(file, () => {})).previewUrl).toBe("data:image/jpeg;base64,AAAA");
+  });
+  it("returns the recognition right away, marked as still waiting for the catalog cover", async () => {
+    const recognized = { title: "Solaris", creator: "Stanisław Lem", category: "book", subcategory: null };
+    fetchMock.mockResolvedValueOnce(
+      reply(200, {
+        success: true,
+        data: { title: "Solaris", artist_creator: "Stanisław Lem", category: "book", subcategory: null, cover_url: null, metadata: { source: "gemini" } },
+        recognized,
+      })
+    );
+    const data = await scanCoverFile(file, () => {});
+    expect(data).toMatchObject({ title: "Solaris", cover_url: null, recognized });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("completeRecognition", () => {
+  const originalFetch = global.fetch;
+  let fetchMock: ReturnType<typeof vi.fn>;
+  const quick = {
+    title: "Solaris",
+    artist_creator: "Stanisław Lem",
+    category: "book",
+    subcategory: null,
+    cover_url: null,
+    metadata: { source: "gemini" },
+    previewUrl: "data:image/jpeg;base64,CROPPED",
+    recognized: { title: "Solaris", creator: "Stanisław Lem", category: "book" as const, subcategory: null },
+  };
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it("fetches the catalog cover and details, keeping the photo preview", async () => {
+    fetchMock.mockResolvedValueOnce(
+      reply(200, { success: true, data: { ...quick, previewUrl: undefined, recognized: undefined, cover_url: "https://covers.example/s.jpg", metadata: { year: "1961", source: "gemini+openlibrary" } } })
+    );
+    const full = await completeRecognition(quick);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/catalog/enrich");
+    expect(JSON.parse(init.body)).toEqual({ recognized: quick.recognized });
+    expect(full).toMatchObject({ cover_url: "https://covers.example/s.jpg", previewUrl: quick.previewUrl, metadata: { year: "1961" } });
+    expect(full.recognized).toBeUndefined();
+  });
+
+  it("keeps what is already known when the catalogs fail", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("offline"));
+    const full = await completeRecognition(quick);
+    expect(full).toMatchObject({ title: "Solaris", cover_url: null, previewUrl: quick.previewUrl });
+    expect(full.recognized).toBeUndefined();
   });
 });

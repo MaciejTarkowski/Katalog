@@ -31,83 +31,31 @@ describe("POST /api/catalog/recognize", () => {
     expect(mockRecognize).not.toHaveBeenCalled();
   });
 
-  it("enriches the recognition with a matching catalog hit, keeping category and platform", async () => {
-    mockRecognize.mockResolvedValue({
+  it("answers with the recognition right away, leaving the catalog lookup to /api/catalog/enrich", async () => {
+    const recognized = {
       title: "Marvel's Spider-Man",
       creator: "Insomniac Games",
       category: "game",
       subcategory: "PS4",
-    });
-    mockLookup.mockResolvedValue({
-      title: "Marvel's Spider-Man",
-      artist_creator: "Insomniac Games",
-      category: "game",
-      subcategory: "PlayStation 5",
-      cover_url: "https://media.rawg.io/spiderman.jpg",
-      metadata: { year: "2018", platform: "PlayStation 5" },
-      source: "rawg",
-    });
+      box: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 },
+    };
+    mockRecognize.mockResolvedValue(recognized);
 
     const res = await POST(request({ image: IMAGE }));
     const json = await res.json();
 
     expect(mockRecognize).toHaveBeenCalledWith({ mimeType: "image/jpeg", data: "AAAA" });
-    expect(mockLookup).toHaveBeenCalledWith({
-      query: "Marvel's Spider-Man Insomniac Games",
+    expect(mockLookup).not.toHaveBeenCalled();
+    expect(json.data).toEqual({
       title: "Marvel's Spider-Man",
-      creator: "Insomniac Games",
-      category: "game",
-    });
-    expect(json.data).toMatchObject({
-      title: "Marvel's Spider-Man",
+      artist_creator: "Insomniac Games",
       category: "game",
       subcategory: "PS4",
-      cover_url: "https://media.rawg.io/spiderman.jpg",
-      metadata: { year: "2018", platform: "PS4", source: "gemini+rawg" },
-    });
-  });
-
-  it("ignores a catalog hit with a different title", async () => {
-    mockRecognize.mockResolvedValue({
-      title: "Szepty spoza nicości",
-      creator: "Remigiusz Mróz",
-      category: "book",
-      subcategory: null,
-    });
-    mockLookup.mockResolvedValue({
-      title: "Kasacja",
-      artist_creator: "Remigiusz Mróz",
-      category: "book",
-      subcategory: null,
-      cover_url: "https://covers.openlibrary.org/b/id/1-L.jpg",
-      metadata: { year: "2015" },
-      source: "openlibrary",
-    });
-
-    const json = await (await POST(request({ image: IMAGE }))).json();
-
-    expect(json.data).toEqual({
-      title: "Szepty spoza nicości",
-      artist_creator: "Remigiusz Mróz",
-      category: "book",
-      subcategory: null,
       cover_url: null,
-      metadata: { source: "gemini" },
+      cover_box: recognized.box,
+      metadata: { platform: "PS4", source: "gemini" },
     });
-  });
-
-  it("returns the recognition when no catalog has it", async () => {
-    mockRecognize.mockResolvedValue({
-      title: "Gruby Brzuch",
-      creator: "Grubson",
-      category: "music",
-      subcategory: "Winyl",
-    });
-    mockLookup.mockResolvedValue(null);
-
-    const json = await (await POST(request({ image: IMAGE }))).json();
-    expect(json.success).toBe(true);
-    expect(json.data).toMatchObject({ title: "Gruby Brzuch", artist_creator: "Grubson", category: "music" });
+    expect(json.recognized).toEqual(recognized);
   });
 
   it("answers 503 with unavailable flag when Gemini is overloaded", async () => {

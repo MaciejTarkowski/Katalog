@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lookupCatalogItem } from "@/lib/catalog/lookup";
 import { GeminiUnavailableError, recognizeCover } from "@/lib/recognize/gemini";
 import { mergeRecognition } from "@/lib/recognize/merge";
 
@@ -33,13 +32,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const query = [recognized.title, recognized.creator].filter(Boolean).join(" ");
-  const item = await lookupCatalogItem({
-    query,
-    title: recognized.title,
-    creator: recognized.creator,
-    category: recognized.category,
-  }).catch(() => null);
-
-  return NextResponse.json({ success: true, data: mergeRecognition(recognized, item) });
+  // Answer as soon as the cover is recognized; the client fetches the catalog cover and details
+  // from /api/catalog/enrich with `recognized`, so the title shows up without waiting for catalogs.
+  return NextResponse.json({ success: true, data: mergeRecognition(recognized, null), recognized });
 }

@@ -4,7 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import type { ItemInsert } from "@/types/database";
 import { searchCommunityItems } from "@/lib/items/api";
 import { uploadCoverImage } from "@/lib/storage/upload";
-import { PHASE_LABEL, ScanError, scanCoverFile, searchCatalogItems, type CatalogSearchPage, type ScannedItemData } from "@/lib/scan/pipeline";
+import {
+  PHASE_LABEL,
+  ScanError,
+  completeRecognition,
+  scanCoverFile,
+  searchCatalogItems,
+  type CatalogSearchPage,
+  type ScannedItemData,
+} from "@/lib/scan/pipeline";
+import { preloadImage } from "@/lib/image/preload";
 import { CATEGORIES, metaLine, pillStyle, plural, tileBackground, initialOf } from "@/lib/items/display";
 import { Chip, Cover, Icon, Sheet } from "@/components/ui/primitives";
 import { AddItemForm } from "@/components/items/AddItemForm";
@@ -50,6 +59,8 @@ function Stage({
   const idle = phase === "idle";
   const scan = phase === "scanning";
   const found = phase === "found";
+  // Title is known, the catalog cover is still on its way: keep the shimmer running on a plain tile.
+  const coverLoading = found && Boolean(item?.recognized);
   const W = idle ? 188 : 176;
   const H = idle ? 188 : SCAN_H;
   const R = idle ? 94 : 16;
@@ -129,7 +140,7 @@ function Stage({
               "linear-gradient(110deg, transparent 30%, color-mix(in oklch, var(--ac) 30%, transparent) 46%, rgba(255,255,255,.18) 50%, color-mix(in oklch, var(--ac2) 30%, transparent) 54%, transparent 70%)",
             animation: "kShimmerX 1.5s linear infinite",
             willChange: "transform",
-            opacity: scan ? 1 : 0,
+            opacity: scan || coverLoading ? 1 : 0,
             transition: "opacity .5s",
           }}
         />
@@ -161,21 +172,21 @@ function Stage({
             className="absolute inset-0 flex items-center justify-center text-[72px] font-extrabold text-white/25"
             style={{ background: tileBackground(item.title), opacity: found ? 1 : 0, transition: "opacity .8s" }}
           >
-            {initialOf(item.title)}
+            {!coverLoading && initialOf(item.title)}
           </span>
         )}
-        {item && cover && (
+        {item && cover && !coverLoading && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
+            // Remounted per cover so a cover arriving later develops in like the first one.
+            key={cover}
             src={cover}
             alt=""
             onError={(e) => (e.currentTarget.style.opacity = "0")}
             className="absolute inset-0 w-full h-full object-cover"
             style={{
               opacity: found ? 1 : 0,
-              filter: found ? "blur(0px) saturate(1)" : "blur(18px) saturate(1.8)",
-              transform: found ? "scale(1)" : "scale(1.18)",
-              transition: "opacity .9s .1s, filter 1.2s cubic-bezier(.2,.7,.2,1) .1s, transform 1.2s cubic-bezier(.2,.7,.2,1) .1s",
+              animation: found ? "kCoverIn 1.2s cubic-bezier(.2,.7,.2,1) .1s both" : "none",
             }}
           />
         )}
@@ -271,6 +282,8 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const timers = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  /** Catalog cover + details still loading for the shown scan; replaced or cleared by a new scan. */
+  const completing = useRef<Promise<ScannedItemData> | null>(null);
   const searchSeq = useRef(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -292,7 +305,22 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
     setBurstKey(Date.now());
   };
 
+  // Title first, cover after: the catalog cover is downloaded before it replaces the loading tile.
+  const completeCover = (data: ScannedItemData) => {
+    const job = completeRecognition(data).then(async (full) => {
+      await preloadImage(full.cover_url || full.previewUrl || "");
+      return full;
+    });
+    completing.current = job;
+    void job.then((full) => {
+      if (completing.current !== job) return;
+      completing.current = null;
+      setItem(full);
+    });
+  };
+
   const reset = () => {
+    completing.current = null;
     setPhase("idle");
     setItem(null);
     setLabel("");
@@ -320,10 +348,12 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
     if (!file) return;
     setItem(null);
     setNotice(null);
+    completing.current = null;
     startScanning();
     try {
       const data = await scanCoverFile(file, (p) => setLabel(PHASE_LABEL[p]));
       showFound(data);
+      if (data.recognized) completeCover(data);
     } catch (err: unknown) {
       reset();
       setNotice(err instanceof Error ? err.message : "Nie udało się rozpoznać okładki.");
@@ -401,6 +431,7 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
     const picked = results[selected];
     setDialog(null);
     setItem(null);
+    completing.current = null;
     later(() => {
       startScanning();
       setLabel(FAST_LABELS[0]);
@@ -412,7 +443,9 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
   const confirm = async () => {
     if (!item || saving) return;
     setSaving(true);
-    let coverUrl = item.cover_url || item.previewUrl || null;
+    // Added before the catalog cover arrived: wait for it instead of saving the photo.
+    const target = completing.current ? await completing.current : item;
+    let coverUrl = target.cover_url || target.previewUrl || null;
     if (coverUrl?.startsWith("data:image/")) {
       const { publicUrl, error } = await uploadCoverImage(coverUrl);
       if (error) {
@@ -423,26 +456,32 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
       coverUrl = publicUrl;
     }
     const addError = await onAdd({
-      title: item.title,
-      artist_creator: item.artist_creator,
-      category: item.category,
-      subcategory: item.subcategory,
+      title: target.title,
+      artist_creator: target.artist_creator,
+      category: target.category,
+      subcategory: target.subcategory,
       cover_url: coverUrl,
-      metadata: item.metadata ?? {},
+      metadata: target.metadata ?? {},
     });
     setSaving(false);
     if (addError) {
       setNotice(addError);
       return;
     }
-    onToast(`Dodano „${item.title}” do kolekcji`);
+    onToast(`Dodano „${target.title}” do kolekcji`);
     setNotice(null);
     reset();
   };
 
   const idle = phase === "idle";
   const found = phase === "found";
-  const prompt = idle ? "Dotknij, aby zeskanować okładkę" : phase === "scanning" ? label : "";
+  const prompt = idle
+    ? "Dotknij, aby zeskanować okładkę"
+    : phase === "scanning"
+      ? label
+      : item?.recognized
+        ? "Dociągam okładkę..."
+        : "";
   const pickedItem = selected !== null ? results[selected] : null;
 
   return (

@@ -5,6 +5,7 @@ import type { CommunityItem } from "@/types/database";
 import {
   PHASE_LABEL,
   ScanError,
+  completeRecognition,
   lookupMetadata,
   scanCoverFile,
   type ScanPhase as PipelinePhase,
@@ -67,7 +68,11 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
         setPhase(next);
         setStatusText(PHASE_LABEL[next]);
       });
-      finishWithData(data);
+      if (data.recognized) {
+        setPhase("lookup");
+        setStatusText(PHASE_LABEL.lookup);
+      }
+      finishWithData(await completeRecognition(data));
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Wystąpił błąd podczas skanowania.";

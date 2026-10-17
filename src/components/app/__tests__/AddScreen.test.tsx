@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { AddScreen } from "../AddScreen";
 
 const mockScan = vi.fn();
+const mockComplete = vi.fn();
 const mockLookup = vi.fn();
 const mockSearch = vi.fn();
 const mockCommunity = vi.fn();
@@ -16,6 +17,7 @@ vi.mock("@/lib/scan/pipeline", async (importOriginal) => {
   return {
     ...actual,
     scanCoverFile: (...args: unknown[]) => mockScan(...args),
+    completeRecognition: (...args: unknown[]) => mockComplete(...args),
     lookupMetadata: (...args: unknown[]) => mockLookup(...args),
     searchCatalogItems: (...args: unknown[]) => mockSearch(...args),
   };
@@ -299,5 +301,79 @@ describe("AddScreen", () => {
     expect(await screen.findByRole("button", { name: /Album C/ })).toBeInTheDocument();
     expect(mockSearch).toHaveBeenLastCalledWith("pink", { category: undefined, page: 1 });
     vi.unstubAllGlobals();
+  });
+  describe("cover arriving after the title", () => {
+    const RECOGNIZED = { title: "Solaris", creator: "Stanisław Lem", category: "book", subcategory: null };
+    const CATALOG_COVER = "https://covers.example/solaris.jpg";
+
+    function deferred() {
+      let resolve!: (value: unknown) => void;
+      const promise = new Promise((r) => (resolve = r));
+      return { promise, resolve };
+    }
+
+    it("shows the title right away and fills in the catalog cover when it arrives", async () => {
+      const pending = deferred();
+      mockScan.mockResolvedValue({ ...SOLARIS, recognized: RECOGNIZED });
+      mockComplete.mockReturnValue(pending.promise);
+      const { container } = render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+      pickFile();
+
+      expect(await screen.findByRole("heading", { name: "Solaris" })).toBeInTheDocument();
+      expect(screen.getByText("Dociągam okładkę...")).toBeInTheDocument();
+      expect(container.querySelector("img")).toBeNull();
+      expect(mockComplete).toHaveBeenCalledWith(expect.objectContaining({ recognized: RECOGNIZED }));
+
+      await act(async () => pending.resolve({ ...SOLARIS, cover_url: CATALOG_COVER }));
+
+      await waitFor(() => expect(container.querySelector("img")).toHaveAttribute("src", CATALOG_COVER));
+      expect(container.querySelector("img")!.style.animation).toContain("kCoverIn");
+      expect(screen.queryByText("Dociągam okładkę...")).not.toBeInTheDocument();
+    });
+
+    it("shows the photo when no catalog has a cover", async () => {
+      mockScan.mockResolvedValue({ ...SOLARIS, recognized: RECOGNIZED });
+      mockComplete.mockResolvedValue(SOLARIS);
+      const { container } = render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+      pickFile();
+
+      await waitFor(() => expect(container.querySelector("img")).toHaveAttribute("src", SOLARIS.previewUrl));
+    });
+
+    it("waits for the catalog cover when the item is added before it arrives", async () => {
+      const pending = deferred();
+      mockScan.mockResolvedValue({ ...SOLARIS, recognized: RECOGNIZED });
+      mockComplete.mockReturnValue(pending.promise);
+      const onAdd = vi.fn().mockResolvedValue(null);
+      render(<AddScreen onAdd={onAdd} onToast={vi.fn()} />);
+      pickFile();
+      await screen.findByRole("heading", { name: "Solaris" });
+
+      fireEvent.click(screen.getByRole("button", { name: "Dodaj do kolekcji" }));
+      expect(await screen.findByText("Zapisywanie...")).toBeInTheDocument();
+      expect(onAdd).not.toHaveBeenCalled();
+
+      await act(async () => pending.resolve({ ...SOLARIS, cover_url: CATALOG_COVER }));
+
+      await waitFor(() => expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ cover_url: CATALOG_COVER })));
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it("ignores a late cover from a scan the user already rejected", async () => {
+      const first = deferred();
+      mockScan.mockResolvedValueOnce({ ...SOLARIS, recognized: RECOGNIZED });
+      mockComplete.mockReturnValueOnce(first.promise);
+      render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
+      pickFile();
+      await screen.findByRole("heading", { name: "Solaris" });
+
+      const DUNE = { ...SOLARIS, title: "Diuna", previewUrl: "data:image/jpeg;base64,DUNE" };
+      mockScan.mockResolvedValueOnce(DUNE);
+      pickFile();
+      await screen.findByRole("heading", { name: "Diuna" });
+
+      await act(async () => first.resolve({ ...SOLARIS, cover_url: CATALOG_COVER }));
+      expect(screen.getByRole("heading", { name: "Diuna" })).toBeInTheDocument();
+    });
   });
 });
