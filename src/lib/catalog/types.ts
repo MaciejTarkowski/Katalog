@@ -24,6 +24,10 @@ export interface LookupInput {
   /** Title and creator as recognized on the cover, when known separately from `query`. */
   title?: string;
   creator?: string | null;
+  /** International / original title, tried when the cover's (e.g. Polish) title finds nothing. */
+  originalTitle?: string | null;
+  /** Console for games ("PS4", "PS3"…); picks the right release and cover. */
+  platform?: string | null;
   category?: CatalogCategory | string;
 }
 

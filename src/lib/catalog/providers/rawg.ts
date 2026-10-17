@@ -1,4 +1,6 @@
 import { catalogFetch, readJson } from "../http";
+import { normalizeForMatch, textsOverlap } from "../normalize";
+import { samePlatform } from "../platform";
 import type { CatalogItem } from "../types";
 import { findIgdbCover } from "./igdb";
 
@@ -19,9 +21,12 @@ function yearFromDate(value?: string): string | undefined {
   return value?.match(/\d{4}/)?.[0];
 }
 
-function fromGame(game: RawgGame): CatalogItem | null {
+function fromGame(game: RawgGame, wanted?: string | null): CatalogItem | null {
   if (!game.name) return null;
-  const platform = game.platforms?.[0]?.platform?.name || null;
+  const platform =
+    game.platforms?.find((p) => samePlatform(p.platform?.name, wanted))?.platform?.name ||
+    game.platforms?.[0]?.platform?.name ||
+    null;
 
   return {
     title: game.name,
@@ -40,27 +45,41 @@ function fromGame(game: RawgGame): CatalogItem | null {
   };
 }
 
-async function withIgdbCover(item: CatalogItem | null): Promise<CatalogItem | null> {
+async function withIgdbCover(item: CatalogItem | null, platform?: string | null): Promise<CatalogItem | null> {
   if (!item) return null;
-  return { ...item, cover_url: await findIgdbCover(item.title) };
+  return { ...item, cover_url: await findIgdbCover(item.title, platform) };
 }
 
-export async function searchRawg(query: string): Promise<CatalogItem | null> {
+/** The result whose title matches the query, preferring the one on `platform`; otherwise RAWG's first. */
+function pickGame(games: RawgGame[], query: string, platform?: string | null): RawgGame | undefined {
+  const named = games.filter((g) => g.name && textsOverlap(g.name, query));
+  const exact = (g: RawgGame) => normalizeForMatch(g.name ?? "") === normalizeForMatch(query);
+  const onPlatform = (g: RawgGame) => Boolean(g.platforms?.some((p) => samePlatform(p.platform?.name, platform)));
+  return (
+    named.find((g) => exact(g) && onPlatform(g)) ??
+    named.find(exact) ??
+    named.find(onPlatform) ??
+    named[0] ??
+    games[0]
+  );
+}
+
+export async function searchRawg(query: string, platform?: string | null): Promise<CatalogItem | null> {
   const key = process.env.RAWG_API_KEY;
   if (!key) return null;
 
   const params = new URLSearchParams({
     key,
     search: query,
-    page_size: "5",
+    page_size: "10",
   });
 
   const json = await readJson<RawgSearchResponse>(
     await catalogFetch(`https://api.rawg.io/api/games?${params.toString()}`)
   );
-  const game = json?.results?.[0];
+  const game = pickGame(json?.results ?? [], query, platform);
   if (!game) return null;
-  return withIgdbCover(fromGame(game));
+  return withIgdbCover(fromGame(game, platform), platform);
 }
 
 export async function searchRawgMany(query: string, limit = 5, offset = 0): Promise<CatalogItem[]> {

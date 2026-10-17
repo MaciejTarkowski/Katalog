@@ -71,10 +71,32 @@ async function lookupByEan(ean: string, categoryHint?: string): Promise<CatalogI
   return pickBest(await settled(tasks), categoryHint);
 }
 
+/** Title names to try for a game, in order: as on the cover, the original title, the title without a subtitle. */
+function gameTitles(title: string, originalTitle?: string | null): string[] {
+  const names = [title, originalTitle ?? "", title.split(/\s*[:–—-]\s+/)[0]]
+    .map((name) => cleanSearchQuery(name))
+    .filter(Boolean);
+  return [...new Set(names)];
+}
+
+/** RAWG + IGDB search that falls back to the original title when the first name finds no cover. */
+async function searchGame(
+  title: string,
+  known?: Pick<LookupInput, "originalTitle" | "platform">
+): Promise<CatalogItem | null> {
+  let best: CatalogItem | null = null;
+  for (const name of gameTitles(title, known?.originalTitle)) {
+    const item = await searchRawg(name, known?.platform);
+    if (item?.cover_url) return item;
+    best ??= item;
+  }
+  return best;
+}
+
 async function lookupByQuery(
   query: string,
   categoryHint?: string,
-  known?: Pick<LookupInput, "title" | "creator">
+  known?: Pick<LookupInput, "title" | "creator" | "originalTitle" | "platform">
 ): Promise<CatalogItem | null> {
   const q = cleanSearchQuery(query);
   if (!q) return null;
@@ -88,7 +110,7 @@ async function lookupByQuery(
     return pickBest(await settled([searchMusicBrainz(q, known), searchDiscogs(q)]), categoryHint, q);
   }
   if (categoryHint === "game") {
-    return searchRawg(gameQuery);
+    return searchGame(gameQuery, known);
   }
 
   return pickBest(
@@ -96,7 +118,7 @@ async function lookupByQuery(
       searchOpenLibrary(q),
       searchMusicBrainz(q, known),
       searchDiscogs(q),
-      searchRawg(gameQuery),
+      searchGame(gameQuery, known),
     ]),
     categoryHint,
     q
@@ -119,7 +141,12 @@ export async function lookupCatalogItem(input: LookupInput): Promise<CatalogItem
       const fromText = await lookupByEan(extracted, categoryHint);
       if (fromText) return fromText;
     }
-    return lookupByQuery(query, categoryHint, { title: input.title, creator: input.creator });
+    return lookupByQuery(query, categoryHint, {
+      title: input.title,
+      creator: input.creator,
+      originalTitle: input.originalTitle,
+      platform: input.platform,
+    });
   }
 
   return null;

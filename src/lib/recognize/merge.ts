@@ -8,7 +8,12 @@ import type { RecognizedCover } from "./gemini";
  * from the recognition so a loosely matching catalog hit cannot replace them.
  */
 export function mergeRecognition(recognized: RecognizedCover, item: CatalogItem | null) {
-  const match = item && textsOverlap(item.title, recognized.title) ? item : null;
+  const match =
+    item &&
+    (textsOverlap(item.title, recognized.title) ||
+      (recognized.originalTitle && textsOverlap(item.title, recognized.originalTitle)))
+      ? item
+      : null;
 
   return {
     title: recognized.title,

@@ -1,8 +1,11 @@
 import { catalogFetch, readJson } from "../http";
+import { normalizeForMatch, textsOverlap } from "../normalize";
+import { samePlatform } from "../platform";
 
 interface IgdbGame {
   name?: string;
   cover?: { image_id?: string };
+  platforms?: Array<{ name?: string; abbreviation?: string }>;
 }
 
 let token: { value: string; expiresAt: number } | null = null;
@@ -24,10 +27,11 @@ async function accessToken(id: string, secret: string): Promise<string | null> {
   return token.value;
 }
 
-const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "");
-
-/** Box-art URL from IGDB (free with Twitch credentials), or null. RAWG only has screenshots. */
-export async function findIgdbCover(title: string): Promise<string | null> {
+/**
+ * Box-art URL from IGDB (free with Twitch credentials), or null. RAWG only has screenshots.
+ * Only a game whose title matches is accepted (never "the first result"); among those the one released on `platform` wins.
+ */
+export async function findIgdbCover(title: string, platform?: string | null): Promise<string | null> {
   const id = process.env.IGDB_CLIENT_ID;
   const secret = process.env.IGDB_CLIENT_SECRET;
   if (!id || !secret) return null;
@@ -39,12 +43,20 @@ export async function findIgdbCover(title: string): Promise<string | null> {
     const res = await catalogFetch("https://api.igdb.com/v4/games", {
       method: "POST",
       headers: { "Client-ID": id, Authorization: `Bearer ${bearer}`, "Content-Type": "text/plain" },
-      body: `search "${title.replace(/["\\]/g, " ")}"; fields name,cover.image_id; limit 5;`,
+      body: `search "${title.replace(/["\\]/g, " ")}"; fields name,cover.image_id,platforms.name,platforms.abbreviation; limit 10;`,
     });
     const games = (await readJson<IgdbGame[]>(res)) ?? [];
-    const withCover = games.filter((g) => g.cover?.image_id);
+    const withCover = games.filter(
+      (g) => g.cover?.image_id && g.name && textsOverlap(g.name, title)
+    );
+    const onPlatform = (g: IgdbGame) =>
+      Boolean(platform) && Boolean(g.platforms?.some((p) => samePlatform(p.abbreviation, platform) || samePlatform(p.name, platform)));
+    const exact = (g: IgdbGame) => normalizeForMatch(g.name ?? "") === normalizeForMatch(title);
     const match =
-      withCover.find((g) => g.name && normalize(g.name) === normalize(title)) ?? withCover[0];
+      withCover.find((g) => exact(g) && onPlatform(g)) ??
+      withCover.find(exact) ??
+      withCover.find(onPlatform) ??
+      withCover[0];
     return match?.cover?.image_id
       ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${match.cover.image_id}.jpg`
       : null;

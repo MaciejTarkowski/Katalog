@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     creator: text(raw.creator),
     category: isCatalogCategory(raw.category) ? raw.category : "other",
     subcategory: text(raw.subcategory),
+    originalTitle: text(raw.originalTitle),
     ...(raw.box && typeof raw.box === "object" ? { box: raw.box } : {}),
   };
 
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest) {
     query: [recognized.title, recognized.creator].filter(Boolean).join(" "),
     title: recognized.title,
     creator: recognized.creator,
+    originalTitle: recognized.originalTitle,
+    platform: recognized.category === "game" ? recognized.subcategory : null,
     category: recognized.category,
   }).catch(() => null);
 

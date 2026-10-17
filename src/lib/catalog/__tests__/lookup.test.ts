@@ -455,4 +455,34 @@ describe("lookupCatalogItem", () => {
     const item = await lookupCatalogItem({ query: "zzzz-unknown-item" });
     expect(item).toBeNull();
   });
+
+  it("falls back to the original title when the localized game title finds nothing", async () => {
+    process.env.IGDB_CLIENT_ID = "id";
+    process.env.IGDB_CLIENT_SECRET = "secret";
+    const searched: string[] = [];
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
+      const href = String(url);
+      if (href.includes("api.rawg.io")) {
+        const search = new URL(href).searchParams.get("search") ?? "";
+        searched.push(search);
+        return search === "Knowledge is Power"
+          ? jsonResponse({ results: [{ name: "Knowledge is Power" }] })
+          : jsonResponse({ results: [] });
+      }
+      if (href.includes("id.twitch.tv")) return jsonResponse({ access_token: "t", expires_in: 3600 });
+      if (href.includes("api.igdb.com"))
+        return jsonResponse([{ name: "Knowledge is Power", cover: { image_id: "kip" } }]);
+      return jsonResponse({}, false, 404);
+    });
+
+    const item = await lookupCatalogItem({
+      query: "Wiedza to potęga",
+      title: "Wiedza to potęga",
+      originalTitle: "Knowledge is Power",
+      platform: "PS4",
+      category: "game",
+    });
+    expect(searched).toEqual(["Wiedza to potęga", "Knowledge is Power"]);
+    expect(item?.cover_url).toContain("/kip.jpg");
+  });
 });

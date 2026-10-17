@@ -47,6 +47,8 @@ describe("POST /api/catalog/enrich", () => {
       query: "Marvel's Spider-Man Insomniac Games",
       title: "Marvel's Spider-Man",
       creator: "Insomniac Games",
+      originalTitle: null,
+      platform: expect.any(String),
       category: "game",
     });
     expect(json.data).toMatchObject({
