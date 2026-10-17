@@ -175,23 +175,25 @@ export function ItemDetailView({
   const [shown, setShown] = useState(false);
   const [lookedUp, setLookedUp] = useState<{ id: string; found: ItemDescription | null } | null>(null);
   const item = givenItem ?? fetched;
-  // A string (also "": looked up, none found) means the description is already known.
-  const savedDescription = typeof item?.metadata?.description === "string" ? item.metadata.description : undefined;
+  // Only a non-empty string is a known description; "" (saved by older versions) is looked up again.
+  const savedDescription =
+    typeof item?.metadata?.description === "string" && item.metadata.description ? item.metadata.description : undefined;
   const onItemChangeRef = useRef(onItemChange);
   useEffect(() => {
     onItemChangeRef.current = onItemChange;
   });
 
-  // Items added before descriptions existed (or from search) get theirs on first open.
+  // Items without a description look it up on open; only a found one is saved, so "none" is retried next time.
   useEffect(() => {
     if (!item || savedDescription !== undefined) return;
     let cancelled = false;
     fetchItemDescription(item).then((found) => {
       if (cancelled || found === undefined) return;
       setLookedUp({ id: item.id, found });
+      if (!found) return;
       onItemChangeRef.current?.({
         ...item,
-        metadata: { ...item.metadata, description: found?.description ?? "", ...(found ? { description_url: found.url } : {}) },
+        metadata: { ...item.metadata, description: found.description, description_url: found.url },
       });
     });
     return () => {

@@ -133,20 +133,30 @@ describe("ItemDetailView", () => {
       });
     });
 
-    it("remembers that there is no description so it is not looked up on every visit", async () => {
+    it("does not save that there is no description, so it is looked up again on the next visit", async () => {
+      mockDescription.mockResolvedValue(null);
       const onItemChange = vi.fn();
       render(<ItemDetailView item={DIUNA} onItemChange={onItemChange} />);
 
-      await waitFor(() =>
-        expect(onItemChange).toHaveBeenCalledWith({ ...DIUNA, metadata: { year: "1965", description: "" } })
-      );
+      await waitFor(() => expect(mockDescription).toHaveBeenCalledTimes(1));
+      expect(onItemChange).not.toHaveBeenCalled();
       expect(screen.queryByRole("heading", { name: "Opis" })).not.toBeInTheDocument();
     });
 
-    it("does not look up again when an empty description was saved, nor save after a failed lookup", async () => {
-      render(<ItemDetailView item={{ ...DIUNA, metadata: { description: "" } }} />);
-      expect(mockDescription).not.toHaveBeenCalled();
+    it("retries items saved earlier with an empty description and saves what it finds", async () => {
+      mockDescription.mockResolvedValue({ description: "1-2-Switch is a party game.", url: "https://en.wikipedia.org/wiki/1-2-Switch" });
+      const onItemChange = vi.fn();
+      const item = { ...DIUNA, metadata: { description: "" } };
+      render(<ItemDetailView item={item} onItemChange={onItemChange} />);
 
+      expect(await screen.findByText("1-2-Switch is a party game.")).toBeInTheDocument();
+      expect(onItemChange).toHaveBeenCalledWith({
+        ...item,
+        metadata: { description: "1-2-Switch is a party game.", description_url: "https://en.wikipedia.org/wiki/1-2-Switch" },
+      });
+    });
+
+    it("does not save after a failed lookup", async () => {
       mockDescription.mockResolvedValue(undefined);
       const onItemChange = vi.fn();
       render(<ItemDetailView item={{ ...DIUNA, id: "item-10" }} onItemChange={onItemChange} />);
