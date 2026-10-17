@@ -51,6 +51,15 @@ export function Logo({ size = 26, wordmark = true }: { size?: number; wordmark?:
   );
 }
 
+/** Spinner standing in for a whole section while its data and covers load. */
+export function SectionLoader({ className = "" }: { className?: string }) {
+  return (
+    <div role="status" aria-label="Ładowanie" className={`flex justify-center py-16 ${className}`}>
+      <div className="w-8 h-8 rounded-full border-2 border-ac border-t-transparent animate-spin" />
+    </div>
+  );
+}
+
 /** Cover image over a gradient tile with the title initial; hides itself when the image fails. */
 export function Cover({
   title,
@@ -78,13 +87,16 @@ export function Cover({
   const hasImage = Boolean(src) && failedSrc !== src;
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ background: tileBackground(seed), ...style }}>
-      <span
-        aria-hidden="true"
-        className="absolute inset-0 flex items-center justify-center font-extrabold text-white/25"
-        style={{ fontSize: letterSize }}
-      >
-        {initialOf(title)}
-      </span>
+      {/* Only without an image: while it loads the tile stays plain instead of flashing the initial. */}
+      {!hasImage && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 flex items-center justify-center font-extrabold text-white/25"
+          style={{ fontSize: letterSize }}
+        >
+          {initialOf(title)}
+        </span>
+      )}
       {!hasImage && showTitle && (
         <span aria-hidden="true" className="absolute left-2 right-2 bottom-2 text-[11px] font-bold leading-[1.15] text-white/90">
           {title}

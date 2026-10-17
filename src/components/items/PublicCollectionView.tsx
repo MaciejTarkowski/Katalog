@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Item } from "@/types/database";
 import { fetchPublicItems } from "@/lib/items/api";
 import { fetchProfile } from "@/lib/profiles/api";
-import { Chip, Cover } from "@/components/ui/primitives";
+import { Chip, Cover, SectionLoader } from "@/components/ui/primitives";
+import { useImagesReady } from "@/lib/image/useImagesReady";
 import { CATEGORIES, OTHER_CATEGORY, collectionSummary, matchesQuery, normalizeForSearch } from "@/lib/items/display";
 
 function RowCard({ item }: { item: Item }) {
@@ -95,6 +96,13 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
     }))
     .filter((r) => r.items.length > 0);
 
+  // One loader for the whole collection until the visible covers are in (about one screen per row).
+  const visibleCovers = rows
+    .flatMap((r) => r.items.slice(0, 6))
+    .map((i) => i.cover_url)
+    .filter((u): u is string => Boolean(u));
+  const coversReady = useImagesReady([...new Set(visibleCovers)]);
+
   return (
     <div className="flex flex-col w-full pb-10">
       <div className="px-5 pt-2 flex flex-col gap-3">
@@ -143,12 +151,8 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
         <div role="alert" className="mx-5 mt-6 p-4 rounded-[18px] bg-rose-500/10 border border-rose-500/25 text-rose-400 text-sm text-center">
           {errorMsg}
         </div>
-      ) : loading ? (
-        <div className="flex gap-3 px-5 mt-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="w-[116px] h-[174px] rounded-[10px] bg-s1 animate-pulse" />
-          ))}
-        </div>
+      ) : loading || !coversReady ? (
+        <SectionLoader className="mt-6" />
       ) : rows.length === 0 ? (
         <div className="mx-5 mt-6 px-5 py-11 rounded-[18px] bg-s1 border border-s2 text-center">
           <p className="text-[15px] font-semibold">{query ? `Brak wyników dla „${searchQuery.trim()}”` : "Pusta kolekcja"}</p>

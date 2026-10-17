@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PublicCollectionView } from "../PublicCollectionView";
+import { __resetLoadedImages } from "@/lib/image/useImagesReady";
 
 const mockFetchPublicItems = vi.fn();
 
@@ -155,5 +156,33 @@ describe("PublicCollectionView", () => {
     render(<PublicCollectionView userId="user-public" />);
     await waitFor(() => expect(mockFetchProfile).toHaveBeenCalled());
     expect(screen.getByRole("heading", { name: "Kolekcja użytkownika" })).toBeInTheDocument();
+  });
+
+  it("shows one loader until the covers are loaded instead of tiles popping in", async () => {
+    __resetLoadedImages();
+    Object.defineProperty(HTMLImageElement.prototype, "complete", { configurable: true, get: () => false });
+    mockFetchPublicItems.mockResolvedValue({
+      data: [
+        {
+          id: "item-1",
+          user_id: "user-public",
+          title: "Wiedźmin",
+          artist_creator: null,
+          category: "book",
+          subcategory: null,
+          cover_url: "https://example.com/w.jpg",
+          metadata: {},
+          created_at: "2026-01-01T00:00:00Z",
+        },
+      ],
+      error: null,
+    });
+    render(<PublicCollectionView userId="user-public" />);
+    // Items are fetched (the summary shows them), but their cover is still loading.
+    await waitFor(() => expect(screen.getByText(/Tryb tylko do odczytu ·/)).toBeInTheDocument());
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(screen.queryByText("Wiedźmin")).not.toBeInTheDocument();
+
+    Object.defineProperty(HTMLImageElement.prototype, "complete", { configurable: true, get: () => true });
   });
 });

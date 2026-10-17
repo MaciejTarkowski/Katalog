@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HomeScreen } from "../HomeScreen";
+import { __resetLoadedImages } from "@/lib/image/useImagesReady";
 import type { Item } from "@/types/database";
 
 const items = ["A", "B", "C"].map(
@@ -141,5 +142,37 @@ describe("HomeScreen hero carousel", () => {
 
     expect(raf).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("HomeScreen loading", () => {
+  beforeEach(() => __resetLoadedImages());
+
+  afterEach(() => {
+    Object.defineProperty(HTMLImageElement.prototype, "complete", { configurable: true, get: () => true });
+  });
+
+  function renderHome(props: Partial<React.ComponentProps<typeof HomeScreen>> = {}) {
+    return render(
+      <HomeScreen items={items} userInitial="M" onOpen={vi.fn()} onProfile={vi.fn()} onAdd={vi.fn()} {...props} />
+    );
+  }
+
+  it("shows one loader for the whole section while items are loading", () => {
+    renderHome({ items: [], isLoading: true });
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+  });
+
+  it("keeps the loader until the covers are loaded instead of showing title initials", () => {
+    Object.defineProperty(HTMLImageElement.prototype, "complete", { configurable: true, get: () => false });
+    renderHome();
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(screen.queryByTestId("item-card-id-A")).not.toBeInTheDocument();
+  });
+
+  it("shows the collection once the covers are ready", () => {
+    renderHome();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByTestId("item-card-id-A")).toBeInTheDocument();
   });
 });

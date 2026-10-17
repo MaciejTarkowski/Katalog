@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Item } from "@/types/database";
 import { CATEGORIES, OTHER_CATEGORY, addedAgo, categoryDef } from "@/lib/items/display";
-import { Chip, Cover, Icon, Logo } from "@/components/ui/primitives";
+import { Chip, Cover, Icon, Logo, SectionLoader } from "@/components/ui/primitives";
+import { useImagesReady } from "@/lib/image/useImagesReady";
 
 interface HomeScreenProps {
   items: Item[];
@@ -17,6 +18,8 @@ interface HomeScreenProps {
 const HERO_COUNT = 5;
 const HERO_INTERVAL_MS = 4500;
 const HERO_TICK_MS = 500;
+/** Covers per row waited for before the collection shows — roughly what fits on screen. */
+const PRELOAD_PER_ROW = 6;
 
 /** Cover tile with title + creator below, used in horizontal rows. */
 export function RowCard({ item, onOpen, width = 116 }: { item: Item; onOpen: (item: Item) => void; width?: number }) {
@@ -47,7 +50,6 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
   const heroRef = useRef<HTMLDivElement>(null);
 
   const hero = items.filter((i) => i.cover_url).slice(0, HERO_COUNT);
-  const showHero = category === "all" && hero.length > 0;
   const hasOther = items.some((i) => !CATEGORIES.some((c) => c.value === i.category));
   const tabs = hasOther ? [...CATEGORIES, OTHER_CATEGORY] : CATEGORIES;
   const rows = tabs
@@ -59,6 +61,14 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
       ),
     }))
     .filter((r) => r.items.length > 0);
+
+  // One loader for the whole screen until the visible covers are in, instead of tiles popping in.
+  const visibleCovers = [...hero, ...rows.flatMap((r) => r.items.slice(0, PRELOAD_PER_ROW))]
+    .map((i) => i.cover_url)
+    .filter((u): u is string => Boolean(u));
+  const coversReady = useImagesReady([...new Set(visibleCovers)]);
+  const loading = isLoading || !coversReady;
+  const showHero = !loading && category === "all" && hero.length > 0;
 
   // Cached instead of read from the DOM inside the scroll handler: `clientWidth` forces a
   // synchronous layout reflow, and reading it on every scroll event (which can fire on nearly
@@ -238,12 +248,8 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
           </>
         )}
 
-        {isLoading ? (
-          <div className="flex gap-3 px-5 mt-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="w-[116px] h-[174px] rounded-[10px] bg-s1 animate-pulse" />
-            ))}
-          </div>
+        {loading ? (
+          <SectionLoader className="mt-6" />
         ) : rows.length === 0 ? (
           <div className="mx-5 mt-6 px-5 py-11 rounded-[18px] bg-s1 border border-s2 text-center">
             <p className="text-[15px] font-semibold">Pusta kolekcja</p>
