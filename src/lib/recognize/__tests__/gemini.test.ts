@@ -104,6 +104,25 @@ describe("recognizeCover", () => {
     expect(fetchMock.mock.calls.map(([url]) => url.match(/models\/([^:]+)/)[1])).toEqual(["model-a", "model-b"]);
   });
 
+  it("asks for low thinking effort so recognition answers faster", async () => {
+    fetchMock.mockResolvedValueOnce(geminiAnswer({ title: "Spider-Man", category: "game" }));
+    await recognizeCover(image, { retryDelayMs: 0 });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "low" });
+  });
+
+  it("repeats the request without the thinking setting when a model rejects it (400)", async () => {
+    fetchMock
+      .mockResolvedValueOnce(status(400))
+      .mockResolvedValueOnce(geminiAnswer({ title: "Spider-Man", category: "game" }));
+
+    await expect(recognizeCover(image, { retryDelayMs: 0 })).resolves.toMatchObject({ title: "Spider-Man" });
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body));
+    expect(fetchMock.mock.calls.map(([url]) => url.match(/models\/([^:]+)/)[1])).toEqual(["model-a", "model-a"]);
+    expect(bodies[0].generationConfig.thinkingConfig).toBeDefined();
+    expect(bodies[1].generationConfig.thinkingConfig).toBeUndefined();
+  });
+
   it("skips a model that does not exist without retrying it", async () => {
     fetchMock
       .mockResolvedValueOnce(status(404))

@@ -24,6 +24,11 @@ const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const RETRIES_PER_MODEL = 1;
 const TIMEOUT_MS = 20_000;
+/**
+ * Reading a cover needs little reasoning; low thinking effort answers noticeably faster. A model that
+ * does not know the setting (400) is asked again without it.
+ */
+const THINKING_CONFIG = { thinkingLevel: "low" };
 
 const PROMPT = `Na zdjęciu jest okładka elementu kolekcji (książka, płyta CD/winyl/kaseta, gra, komiks).
 Kolekcja należy do osoby z Polski — wiele pozycji to polskie wydania i polscy wykonawcy.
@@ -132,7 +137,12 @@ export function parseGeminiResponse(json: unknown): RecognizedCover | null {
   };
 }
 
-async function callModel(model: string, key: string, image: { data: string; mimeType: string }) {
+async function callModel(
+  model: string,
+  key: string,
+  image: { data: string; mimeType: string },
+  withThinkingConfig = true
+) {
   return fetch(`${API_BASE}/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
@@ -147,6 +157,7 @@ async function callModel(model: string, key: string, image: { data: string; mime
         responseMimeType: "application/json",
         responseSchema: RESPONSE_SCHEMA,
         temperature: 0,
+        ...(withThinkingConfig ? { thinkingConfig: THINKING_CONFIG } : {}),
       },
     }),
   });
@@ -170,6 +181,7 @@ export async function recognizeCover(
       let res: Response;
       try {
         res = await callModel(model, key, image);
+        if (res.status === 400) res = await callModel(model, key, image, false);
       } catch (err) {
         // A model that timed out is likely to time out again: try the next one instead.
         if ((err as { name?: string } | null)?.name === "TimeoutError") break;
