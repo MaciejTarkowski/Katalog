@@ -56,7 +56,11 @@ export function cleanSearchQuery(text: string): string {
     .slice(0, 240);
 }
 
-/** Lowercase, no diacritics or punctuation — for comparing titles across sources. */
+/** Sequel numerals II–XX; single I, V, X are left alone ("I, Robot", "Malcolm X"). */
+const ROMAN = ["ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x", "xi", "xii", "xiii", "xiv", "xv", "xvi", "xvii", "xviii", "xix", "xx"];
+const ROMAN_RE = /\b(?:xviii|xvii|xiii|viii|xiv|xvi|xix|vii|iii|xii|xv|xi|xx|ix|vi|iv|ii)\b/g;
+
+/** Lowercase, no diacritics or punctuation, "II" as "2" — for comparing titles across sources. */
 export function normalizeForMatch(value: string): string {
   return value
     .toLowerCase()
@@ -64,6 +68,7 @@ export function normalizeForMatch(value: string): string {
     .replace(/[̀-ͯ]/g, "")
     .replace(/ł/g, "l")
     .replace(/[^a-z0-9]+/g, " ")
+    .replace(ROMAN_RE, (numeral) => String(ROMAN.indexOf(numeral) + 2))
     .trim();
 }
 

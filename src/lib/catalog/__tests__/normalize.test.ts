@@ -5,6 +5,8 @@ import {
   isIsbnPrefix,
   normalizeEan,
   cleanSearchQuery,
+  normalizeForMatch,
+  textsOverlap,
 } from "../normalize";
 
 describe("catalog normalize", () => {
@@ -32,5 +34,16 @@ describe("catalog normalize", () => {
     expect(cleanSearchQuery("  Pink   Floyd | Dark Side  ")).toBe(
       "Pink Floyd Dark Side"
     );
+  });
+
+  it("treats roman sequel numerals as arabic", () => {
+    expect(normalizeForMatch("Red Dead Redemption II")).toBe("red dead redemption 2");
+    expect(normalizeForMatch("Final Fantasy VII")).toBe("final fantasy 7");
+    expect(textsOverlap("Red Dead Redemption 2", "Red Dead Redemption II")).toBe(true);
+  });
+
+  it("keeps single letters I, V, X as words", () => {
+    expect(normalizeForMatch("I, Robot")).toBe("i robot");
+    expect(normalizeForMatch("Malcolm X")).toBe("malcolm x");
   });
 });
