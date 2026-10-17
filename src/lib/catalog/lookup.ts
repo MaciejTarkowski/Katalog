@@ -11,6 +11,7 @@ import {
   searchMusicBrainz,
 } from "./providers/musicBrainz";
 import { lookupOpenLibraryByIsbn, searchOpenLibrary } from "./providers/openLibrary";
+import { searchIgdbGame } from "./providers/igdb";
 import { searchRawg } from "./providers/rawg";
 import { isCatalogCategory, type CatalogItem, type LookupInput } from "./types";
 
@@ -85,10 +86,26 @@ async function searchGame(
   known?: Pick<LookupInput, "originalTitle" | "platform">
 ): Promise<CatalogItem | null> {
   let best: CatalogItem | null = null;
-  for (const name of gameTitles(title, known?.originalTitle)) {
+  const names = gameTitles(title, known?.originalTitle);
+  for (const name of names) {
     const item = await searchRawg(name, known?.platform);
     if (item?.cover_url) return item;
     best ??= item;
+  }
+
+  // RAWG may not know the game at all (or only under another name): ask IGDB directly, which also knows local titles.
+  for (const name of names) {
+    const hit = await searchIgdbGame(name, known?.platform);
+    if (!hit) continue;
+    return {
+      title: hit.title,
+      artist_creator: null,
+      category: "game",
+      subcategory: known?.platform ?? null,
+      cover_url: hit.coverUrl,
+      metadata: { year: hit.year, platform: known?.platform ?? undefined, source: "igdb" },
+      source: "igdb",
+    };
   }
   return best;
 }

@@ -6,6 +6,15 @@ interface IgdbGame {
   name?: string;
   cover?: { image_id?: string };
   platforms?: Array<{ name?: string; abbreviation?: string }>;
+  alternative_names?: Array<{ name?: string }>;
+  first_release_date?: number;
+}
+
+export interface IgdbMatch {
+  /** IGDB's own name, or the searched title when only an alternative (e.g. Polish) name matched. */
+  title: string;
+  coverUrl: string;
+  year?: string;
 }
 
 let token: { value: string; expiresAt: number } | null = null;
@@ -28,10 +37,11 @@ async function accessToken(id: string, secret: string): Promise<string | null> {
 }
 
 /**
- * Box-art URL from IGDB (free with Twitch credentials), or null. RAWG only has screenshots.
- * Only a game whose title matches is accepted (never "the first result"); among those the one released on `platform` wins.
+ * Best IGDB game for `title` (free with Twitch credentials) that has box art, or null. RAWG only has screenshots.
+ * Only a game whose name or alternative name matches is accepted (never "the first result"); among those the one
+ * released on `platform` wins.
  */
-export async function findIgdbCover(title: string, platform?: string | null): Promise<string | null> {
+export async function searchIgdbGame(title: string, platform?: string | null): Promise<IgdbMatch | null> {
   const id = process.env.IGDB_CLIENT_ID;
   const secret = process.env.IGDB_CLIENT_SECRET;
   if (!id || !secret) return null;
@@ -43,24 +53,35 @@ export async function findIgdbCover(title: string, platform?: string | null): Pr
     const res = await catalogFetch("https://api.igdb.com/v4/games", {
       method: "POST",
       headers: { "Client-ID": id, Authorization: `Bearer ${bearer}`, "Content-Type": "text/plain" },
-      body: `search "${title.replace(/["\\]/g, " ")}"; fields name,cover.image_id,platforms.name,platforms.abbreviation; limit 10;`,
+      body: `search "${title.replace(/["\\]/g, " ")}"; fields name,cover.image_id,first_release_date,platforms.name,platforms.abbreviation,alternative_names.name; limit 10;`,
     });
     const games = (await readJson<IgdbGame[]>(res)) ?? [];
-    const withCover = games.filter(
-      (g) => g.cover?.image_id && g.name && textsOverlap(g.name, title)
-    );
+    const names = (g: IgdbGame) => [g.name, ...(g.alternative_names ?? []).map((a) => a.name)];
+    const named = (g: IgdbGame) => names(g).some((n) => n && textsOverlap(n, title));
+    const withCover = games.filter((g) => g.cover?.image_id && named(g));
     const onPlatform = (g: IgdbGame) =>
-      Boolean(platform) && Boolean(g.platforms?.some((p) => samePlatform(p.abbreviation, platform) || samePlatform(p.name, platform)));
-    const exact = (g: IgdbGame) => normalizeForMatch(g.name ?? "") === normalizeForMatch(title);
+      Boolean(platform) &&
+      Boolean(g.platforms?.some((p) => samePlatform(p.abbreviation, platform) || samePlatform(p.name, platform)));
+    const exact = (g: IgdbGame) => names(g).some((n) => n && normalizeForMatch(n) === normalizeForMatch(title));
     const match =
       withCover.find((g) => exact(g) && onPlatform(g)) ??
       withCover.find(exact) ??
       withCover.find(onPlatform) ??
       withCover[0];
-    return match?.cover?.image_id
-      ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${match.cover.image_id}.jpg`
-      : null;
+    if (!match?.cover?.image_id) return null;
+
+    const ownName = match.name && textsOverlap(match.name, title);
+    return {
+      title: ownName ? match.name! : title,
+      coverUrl: `https://images.igdb.com/igdb/image/upload/t_cover_big/${match.cover.image_id}.jpg`,
+      year: match.first_release_date ? String(new Date(match.first_release_date * 1000).getUTCFullYear()) : undefined,
+    };
   } catch {
     return null;
   }
+}
+
+/** Box-art URL for `title` (see `searchIgdbGame`), or null. */
+export async function findIgdbCover(title: string, platform?: string | null): Promise<string | null> {
+  return (await searchIgdbGame(title, platform))?.coverUrl ?? null;
 }
