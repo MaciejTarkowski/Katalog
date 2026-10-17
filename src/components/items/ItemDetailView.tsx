@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Item } from "@/types/database";
 import { fetchItemById } from "@/lib/items/api";
+import { fetchItemDescription, type ItemDescription } from "@/lib/items/description";
 import { categoryDef, pillStyle, tileBackground } from "@/lib/items/display";
 import { Cover, Icon } from "@/components/ui/primitives";
 
@@ -18,6 +19,8 @@ interface ItemDetailViewProps {
   /** Items shown in the "Więcej" row (same category). */
   similar?: Item[];
   onOpen?: (item: Item) => void;
+  /** Gets the item with a newly looked-up description in its metadata, to save it. */
+  onItemChange?: (item: Item) => void;
 }
 
 const METADATA_LABELS: Record<string, string> = {
@@ -36,7 +39,7 @@ const METADATA_LABELS: Record<string, string> = {
 /** Readable metadata rows: primitives (and string lists) only, no technical ids or source. */
 function metadataRows(metadata: Record<string, unknown>): Array<[string, string]> {
   return Object.entries(metadata || {}).flatMap(([key, value]): Array<[string, string]> => {
-    if (key.endsWith("_id") || key === "source") return [];
+    if (key.endsWith("_id") || key === "source" || key.startsWith("description")) return [];
     const text = Array.isArray(value)
       ? value.filter((v) => typeof v === "string" || typeof v === "number").join(", ")
       : typeof value === "string" || typeof value === "number"
@@ -157,11 +160,49 @@ function CoverStage({ item }: { item: Item }) {
   );
 }
 
-export function ItemDetailView({ itemId, item: givenItem, fromShare, onBack, onDelete, similar, onOpen }: ItemDetailViewProps) {
+export function ItemDetailView({
+  itemId,
+  item: givenItem,
+  fromShare,
+  onBack,
+  onDelete,
+  similar,
+  onOpen,
+  onItemChange,
+}: ItemDetailViewProps) {
   const [fetched, setFetched] = useState<Item | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [shown, setShown] = useState(false);
+  const [lookedUp, setLookedUp] = useState<{ id: string; found: ItemDescription | null } | null>(null);
   const item = givenItem ?? fetched;
+  // A string (also "": looked up, none found) means the description is already known.
+  const savedDescription = typeof item?.metadata?.description === "string" ? item.metadata.description : undefined;
+  const onItemChangeRef = useRef(onItemChange);
+  useEffect(() => {
+    onItemChangeRef.current = onItemChange;
+  });
+
+  // Items added before descriptions existed (or from search) get theirs on first open.
+  useEffect(() => {
+    if (!item || savedDescription !== undefined) return;
+    let cancelled = false;
+    fetchItemDescription(item).then((found) => {
+      if (cancelled || found === undefined) return;
+      setLookedUp({ id: item.id, found });
+      onItemChangeRef.current?.({
+        ...item,
+        metadata: { ...item.metadata, description: found?.description ?? "", ...(found ? { description_url: found.url } : {}) },
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item, savedDescription]);
+
+  const found = lookedUp && lookedUp.id === item?.id ? lookedUp.found : null;
+  const description = savedDescription || found?.description || "";
+  const descriptionUrl =
+    (typeof item?.metadata?.description_url === "string" ? item.metadata.description_url : "") || found?.url || "";
 
   useEffect(() => {
     if (givenItem || !itemId) return;
@@ -257,6 +298,22 @@ export function ItemDetailView({ itemId, item: givenItem, fromShare, onBack, onD
       </div>
 
       <div className="relative mx-5 mt-7" style={fade(0.42)}>
+        {description && (
+          <section className="mb-7" style={{ animation: "kToastIn .5s both" }}>
+            <h2 className="text-lg font-bold tracking-[-.02em] mb-2.5">Opis</h2>
+            <p className="text-[14.5px] leading-[1.55] text-tx/90 whitespace-pre-line">{description}</p>
+            {descriptionUrl && (
+              <a
+                href={descriptionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-xs text-mu underline underline-offset-2"
+              >
+                Źródło: Wikipedia
+              </a>
+            )}
+          </section>
+        )}
         {rows.length > 0 && (
           <>
             <h2 className="text-lg font-bold tracking-[-.02em] mb-2.5">Szczegóły</h2>

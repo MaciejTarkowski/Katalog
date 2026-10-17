@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { Item } from "@/types/database";
-import { fetchItems, addItem, deleteItem } from "@/lib/items/api";
+import { fetchItems, addItem, deleteItem, updateItemMetadata } from "@/lib/items/api";
 import { ensureProfile, nameFromMetadata } from "@/lib/profiles/api";
 import { initialOf } from "@/lib/items/display";
 import { Welcome } from "@/components/auth/Welcome";
@@ -123,6 +123,13 @@ export function Dashboard() {
     }
   };
 
+  // A description looked up in the detail view: keep it in the list and save it for next time.
+  const handleItemChange = (updated: Item) => {
+    setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+    setDetail((prev) => (prev?.id === updated.id ? updated : prev));
+    void updateItemMetadata(updated.id, updated.metadata);
+  };
+
   const selectTab = (next: Tab) => {
     setDetail(null);
     setTab(next);
@@ -158,6 +165,7 @@ export function Dashboard() {
           onDelete={handleDeleteItem}
           similar={items.filter((i) => i.category === detail.category && i.id !== detail.id)}
           onOpen={setDetail}
+          onItemChange={handleItemChange}
         />
       ) : tab === "home" ? (
         <HomeScreen

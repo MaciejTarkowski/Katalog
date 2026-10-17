@@ -6,12 +6,15 @@ import {
   addItem,
   deleteItem,
   searchCommunityItems,
+  updateItemMetadata,
 } from "../api";
 
 const mockSelect = vi.fn();
 const mockEq = vi.fn();
 const mockInsert = vi.fn();
 const mockDelete = vi.fn();
+const mockUpdate = vi.fn();
+const mockUpdateEq = vi.fn();
 const mockSingle = vi.fn();
 const mockGetUser = vi.fn();
 const mockQueryEq = vi.fn();
@@ -54,6 +57,9 @@ vi.mock("@/lib/supabase/client", () => ({
           }),
           delete: mockDelete.mockReturnValue({
             eq: mockEq,
+          }),
+          update: mockUpdate.mockReturnValue({
+            eq: mockUpdateEq,
           }),
         };
       }
@@ -194,6 +200,17 @@ describe("Items API", () => {
 
     expect(result.data).toEqual(insertedItem);
     expect(result.error).toBeNull();
+  });
+
+  it("updateItemMetadata saves the item's metadata", async () => {
+    mockUpdateEq.mockResolvedValue({ error: null });
+    const result = await updateItemMetadata("item-1", { year: "1961", description: "Opis." });
+    expect(mockUpdate).toHaveBeenCalledWith({ metadata: { year: "1961", description: "Opis." } });
+    expect(mockUpdateEq).toHaveBeenCalledWith("id", "item-1");
+    expect(result).toEqual({ success: true, error: null });
+
+    mockUpdateEq.mockResolvedValue({ error: { message: "RLS" } });
+    expect(await updateItemMetadata("item-1", {})).toEqual({ success: false, error: "RLS" });
   });
 
   it("deleteItem deletes successfully", async () => {

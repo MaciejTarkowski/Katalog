@@ -148,6 +148,21 @@ export async function addItem(
   }
 }
 
+/** Replaces the item's metadata (owner only, by RLS) — e.g. to store a looked-up description. */
+export async function updateItemMetadata(
+  id: string,
+  metadata: Record<string, unknown>
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = createClient();
+    const { error } = await supabase.from("items").update({ metadata }).eq("id", id);
+    return error ? { success: false, error: error.message } : { success: true, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Błąd podczas zapisywania elementu";
+    return { success: false, error: message };
+  }
+}
+
 export async function deleteItem(id: string): Promise<{ success: boolean; error: string | null }> {
   try {
     const supabase = createClient();
