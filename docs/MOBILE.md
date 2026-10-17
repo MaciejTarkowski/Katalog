@@ -10,9 +10,27 @@ dla innych osób wymagają **publicznego adresu produkcyjnego**: w Vercel → Se
 Vercel Authentication dla Production i użyj domeny typu `https://<projekt>.vercel.app` (Settings → Domains).
 
 ## iOS — PWA (bez Apple Developer Program)
-1. Otwórz wdrożony adres w **Safari** (inne przeglądarki na iOS nie instalują PWA).
+1. Otwórz wdrożony adres w **Safari** (od iOS 16.4 także w Chrome/Edge przez menu Udostępnij).
 2. Udostępnij → **Dodaj do ekranu głównego**.
 3. Aplikacja działa w trybie pełnoekranowym (`display: standalone`, ikona i `appleWebApp` są w `layout.tsx`).
+
+### Testowanie na fizycznym iPhonie z Windowsa
+Mac nie jest potrzebny. iPhone otwiera tę samą wdrożoną aplikację co komputer:
+1. Wdróż zmiany (np. `git push` → Vercel) i otwórz **publiczny adres produkcyjny** na iPhonie (patrz wyżej:
+   adres podglądu z Deployment Protection wymaga logowania do Vercel).
+2. Dodaj do ekranu głównego (kroki 1–2) i uruchom z ikony. Po każdym wdrożeniu wystarczy zamknąć i ponownie
+   otworzyć aplikację. Jeśli widać starą wersję, service worker trzyma cache: usuń ikonę i dodaj ją ponownie.
+3. Aparat (skanowanie okładek) wymaga HTTPS, dlatego `http://<IP-komputera>:3000` z sieci lokalnej nie wystarczy.
+   Testuj na wdrożonym adresie.
+4. Logowanie przez Google i Apple działa w PWA (przekierowanie do dostawcy i powrót na `/auth/callback`).
+
+Ograniczenie: podgląd konsoli JavaScript z iPhone'a (Web Inspector w Safari) wymaga Maca. Błędy serwera widać
+w logach Vercel, a błędy w przeglądarce najprościej odtworzyć w Chrome na Windowsie w trybie urządzenia mobilnego (F12 → ikona telefonu).
+
+### Natywna aplikacja w App Store (na później)
+Wymaga konta Apple Developer (99 USD/rok, to samo co dla logowania przez Apple). Bez Maca: opakowanie
+(np. Capacitor) z wdrożonym adresem i budowanie w chmurze (GitHub Actions z runnerem macOS albo Codemagic,
+oba z darmowym limitem), testy przez TestFlight. Ma sens dopiero, gdy PWA przestanie wystarczać.
 
 ## Android — APK (TWA, darmowo)
 Wymaga wdrożonego adresu HTTPS.
@@ -41,4 +59,4 @@ To Chrome zgłasza, że nie potwierdził Digital Asset Links między APK a domen
 
 ## Ograniczenia
 - Ikona `maskable` jest tą samą grafiką co `any`; na Androidzie może być przycięta — warto dodać wersję z marginesem ~10%.
-- iOS: PWA wymaga Safari i ręcznego dodania do ekranu głównego; nie ma jej w App Store (to wymaga płatnego konta Apple).
+- iOS: PWA wymaga ręcznego dodania do ekranu głównego; nie ma jej w App Store (to wymaga płatnego konta Apple).
