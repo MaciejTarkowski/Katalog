@@ -95,6 +95,15 @@ describe("recognizeCover", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
+  it("moves on to the next model after a timeout instead of waiting for the same model again", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new DOMException("The operation timed out.", "TimeoutError"))
+      .mockResolvedValueOnce(geminiAnswer({ title: "Spider-Man", category: "game" }));
+
+    await recognizeCover(image, { retryDelayMs: 0 });
+    expect(fetchMock.mock.calls.map(([url]) => url.match(/models\/([^:]+)/)[1])).toEqual(["model-a", "model-b"]);
+  });
+
   it("skips a model that does not exist without retrying it", async () => {
     fetchMock
       .mockResolvedValueOnce(status(404))

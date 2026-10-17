@@ -170,7 +170,9 @@ export async function recognizeCover(
       let res: Response;
       try {
         res = await callModel(model, key, image);
-      } catch {
+      } catch (err) {
+        // A model that timed out is likely to time out again: try the next one instead.
+        if ((err as { name?: string } | null)?.name === "TimeoutError") break;
         if (attempt < RETRIES_PER_MODEL) await sleep(retryDelayMs * (attempt + 1));
         continue;
       }

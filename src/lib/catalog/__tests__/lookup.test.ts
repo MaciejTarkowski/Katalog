@@ -341,6 +341,51 @@ describe("lookupCatalogItem", () => {
     expect(item?.cover_url).toBe("https://coverartarchive.org/release-group/rg-gb/front-500");
   });
 
+  it("checks MusicBrainz covers in parallel without following the slow Cover Art Archive redirect", async () => {
+    const heads: Array<{ url: string; init?: RequestInit; resolve: (r: unknown) => void }> = [];
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes("musicbrainz.org/ws/2/release")) {
+          return Promise.resolve(
+            jsonResponse({
+              releases: [
+                { id: "r1", title: "Abbey Road", "release-group": { id: "g1" } },
+                { id: "r2", title: "Abbey Road", "release-group": { id: "g1" } },
+                { id: "r3", title: "Abbey Road", "release-group": { id: "g3" } },
+              ],
+            })
+          );
+        }
+        if (href.includes("coverartarchive.org") && init?.method === "HEAD") {
+          return new Promise((resolve) => heads.push({ url: href, init, resolve }));
+        }
+        return Promise.resolve(jsonResponse({}, false, 404));
+      }
+    );
+
+    const pending = lookupCatalogItem({ query: "Abbey Road", title: "Abbey Road", category: "music" });
+    await vi.waitFor(() => expect(heads.length).toBe(5));
+    // All candidates start together, in preference order; g1 is asked for once for both its releases.
+    expect(heads.map((h) => h.url)).toEqual([
+      "https://coverartarchive.org/release/r1/front-500",
+      "https://coverartarchive.org/release-group/g1/front-500",
+      "https://coverartarchive.org/release/r2/front-500",
+      "https://coverartarchive.org/release/r3/front-500",
+      "https://coverartarchive.org/release-group/g3/front-500",
+    ]);
+    expect(heads.every((h) => h.init?.redirect === "manual")).toBe(true);
+
+    // CAA answers 307 (redirect to archive.org) when artwork exists and 404 when it does not.
+    heads[0].resolve({ ok: false, status: 404 });
+    heads[1].resolve({ ok: false, status: 404 });
+    heads[2].resolve({ ok: false, status: 307 });
+    heads[3].resolve({ ok: false, status: 307 });
+    heads[4].resolve({ ok: false, status: 307 });
+    const item = await pending;
+    expect(item?.cover_url).toBe("https://coverartarchive.org/release/r2/front-500");
+  });
+
   it("does not search MusicBrainz for free text as a single quoted phrase", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse({ results: [], releases: [] })

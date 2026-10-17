@@ -28,36 +28,21 @@ function yearFromDate(value?: string): string | undefined {
   return value?.match(/\d{4}/)?.[0];
 }
 
+/**
+ * Cover Art Archive answers 307 (to archive.org) when artwork exists and 404 when not. Not
+ * following the redirect saves ~1s per check: we only need to know the image is there.
+ */
 async function coverExists(url: string): Promise<boolean> {
   try {
-    const res = await catalogFetch(url, { method: "HEAD" });
-    return res.ok;
+    const res = await catalogFetch(url, { method: "HEAD", redirect: "manual" });
+    return res.ok || (res.status >= 300 && res.status < 400);
   } catch {
     return false;
   }
 }
 
-/** Release artwork first, then the release group's (shared by all editions of the album). */
-async function coverUrlForRelease(
-  release: MusicBrainzRelease,
-  skipGroup = false
-): Promise<string | null> {
-  const candidates = [`https://coverartarchive.org/release/${release.id}/front-500`];
-  const groupId = release["release-group"]?.id;
-  if (groupId && !skipGroup) candidates.push(`https://coverartarchive.org/release-group/${groupId}/front-500`);
-
-  for (const url of candidates) {
-    if (await coverExists(url)) return url;
-  }
-  return null;
-}
-
-async function fromRelease(
-  release: MusicBrainzRelease,
-  skipGroupCover = false
-): Promise<CatalogItem | null> {
+function fromRelease(release: MusicBrainzRelease, cover_url: string | null): CatalogItem | null {
   if (!release.title || !release.id) return null;
-  const cover_url = await coverUrlForRelease(release, skipGroupCover);
   const primaryType = release["release-group"]?.["primary-type"];
 
   return {
@@ -99,18 +84,23 @@ async function search(query: string): Promise<CatalogItem | null> {
   if (!releases.length) return null;
 
   // The top hit is often a bare edition; take the first one that has artwork (best match order kept).
-  const checkedGroups = new Set<string>();
-  let first: CatalogItem | null = null;
+  // Per release: its own artwork, then the release group's (shared by all editions of the album,
+  // so asked for only once). All checks run at once instead of one after another.
+  const candidates: Array<{ release: MusicBrainzRelease; url: string }> = [];
+  const groups = new Set<string>();
   for (const release of releases) {
+    if (!release.title || !release.id) continue;
+    candidates.push({ release, url: `https://coverartarchive.org/release/${release.id}/front-500` });
     const groupId = release["release-group"]?.id;
-    // Same album's other editions share the group artwork we already know is missing.
-    const groupChecked = groupId ? checkedGroups.has(groupId) : false;
-    if (groupId) checkedGroups.add(groupId);
-    const item = await fromRelease(release, groupChecked);
-    if (!first) first = item;
-    if (item?.cover_url) return item;
+    if (groupId && !groups.has(groupId)) {
+      groups.add(groupId);
+      candidates.push({ release, url: `https://coverartarchive.org/release-group/${groupId}/front-500` });
+    }
   }
-  return first;
+  const exists = await Promise.all(candidates.map((c) => coverExists(c.url)));
+  const hit = candidates.find((_, i) => exists[i]);
+  if (hit) return fromRelease(hit.release, hit.url);
+  return releases.map((r) => fromRelease(r, null)).find(Boolean) ?? null;
 }
 
 /** Strips Lucene syntax so user text cannot break the query. */
