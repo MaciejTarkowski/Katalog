@@ -6,7 +6,7 @@ export interface ItemDescription {
 }
 
 /**
- * Short description for the item's detail view (Polish Wikipedia, via /api/catalog/description).
+ * Short description for the item's detail view (Polish, else English Wikipedia, via /api/catalog/description).
  * null: there is none; undefined: the lookup failed and may be retried later.
  */
 export async function fetchItemDescription(item: Item): Promise<ItemDescription | null | undefined> {

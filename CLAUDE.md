@@ -46,7 +46,7 @@ Add-item flow:
 2. OCR/barcode path: POST `{ ean?, query?, category? }` to `app/api/catalog/lookup/route.ts`. The recognize route answers right after Gemini (with `recognized`); `AddScreen` shows the title and then calls `completeRecognition` → `app/api/catalog/enrich/route.ts`, which runs the same lookup and merges it with `lib/recognize/merge.ts` (title/category from Gemini, cover/metadata from a catalog hit with a matching title).
 3. `lib/catalog/lookup.ts` queries providers in `lib/catalog/providers/` (Open Library, MusicBrainz, Discogs, RAWG) in parallel and picks the most complete result. Order: EAN → EAN extracted from OCR text → free-text search. HTTP goes through `catalogFetch` (`lib/catalog/http.ts`).
 4. `AddItemForm` saves via `lib/items/api.ts`; covers go to the Storage bucket `covers` (`lib/storage/upload.ts`).
-5. Detail view: a missing `metadata.description` is looked up on open via `app/api/catalog/description/route.ts` (Polish Wikipedia, `lib/catalog/providers/wikipedia.ts`) and saved back (`""` = none found).
+5. Detail view: a missing `metadata.description` is looked up on open via `app/api/catalog/description/route.ts` (Polish Wikipedia, English as fallback; `lib/catalog/providers/wikipedia.ts`) and saved back (`""` = none found).
 
 The only AI call is Gemini in `lib/recognize/gemini.ts` (REST, no SDK) — always mock `fetch` for it in tests.
 

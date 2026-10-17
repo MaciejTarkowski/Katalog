@@ -3,7 +3,7 @@ import { findWikipediaDescription } from "@/lib/catalog/providers/wikipedia";
 
 const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
 
-/** Short description of an item (Polish Wikipedia), shown in its detail view. */
+/** Short description of an item (Polish, else English Wikipedia), shown in its detail view. */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const title = text(body?.title);

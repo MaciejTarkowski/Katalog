@@ -70,6 +70,47 @@ describe("findWikipediaDescription", () => {
     expect(result!.description.endsWith(".")).toBe(true);
   });
 
+  it("falls back to English Wikipedia when there is no Polish article", async () => {
+    fetchMock.mockImplementation(async (href: string) => {
+      const list: Page[] = href.includes("pl.wikipedia.org")
+        ? [{ title: "Nintendo Switch", index: 1, extract: "Nintendo Switch – konsola gier wideo wyprodukowana przez Nintendo." }]
+        : [
+            { title: "Nintendo Switch", index: 1, extract: "The Nintendo Switch is a video game console developed by Nintendo." },
+            { title: "1-2-Switch", index: 2, extract: "1-2-Switch is a 2017 party video game developed and published by Nintendo." },
+          ];
+      return { ok: true, status: 200, json: async () => ({ query: { pages: list } }) };
+    });
+
+    const result = await findWikipediaDescription({ title: "1-2 Switch", creator: "Nintendo", category: "game" });
+
+    expect(new URL(fetchMock.mock.calls[1][0]).host).toBe("en.wikipedia.org");
+    expect(result).toEqual({
+      description: "1-2-Switch is a 2017 party video game developed and published by Nintendo.",
+      url: "https://en.wikipedia.org/wiki/1-2-Switch",
+    });
+  });
+
+  it("on English Wikipedia, needs an English disambiguation note of the right kind", async () => {
+    fetchMock.mockImplementation(async (href: string) => {
+      const list: Page[] = href.includes("pl.wikipedia.org")
+        ? []
+        : [
+            { title: "Dune (2021 film)", index: 1, extract: "Dune is a 2021 film based on the novel by Frank Herbert." },
+            { title: "Dune (novel)", index: 2, extract: "Dune is a 1965 science fiction novel by Frank Herbert." },
+          ];
+      return { ok: true, status: 200, json: async () => ({ query: { pages: list } }) };
+    });
+
+    const result = await findWikipediaDescription({ title: "Dune", creator: "Frank Herbert", category: "book" });
+    expect(result?.url).toBe("https://en.wikipedia.org/wiki/Dune_(novel)");
+  });
+
+  it("does not ask English Wikipedia when the Polish article matches", async () => {
+    pages([{ title: "Solaris", index: 1, extract: "Solaris – powieść Stanisława Lema." }]);
+    await findWikipediaDescription({ title: "Solaris", creator: "Stanisław Lem", category: "book" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("returns null when Wikipedia has nothing or fails", async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ batchcomplete: true }) });
     expect(await findWikipediaDescription({ title: "Szepty spoza nicości", creator: "Remigiusz Mróz", category: "book" })).toBeNull();
