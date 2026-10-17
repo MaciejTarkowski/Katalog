@@ -320,7 +320,9 @@ describe("AddScreen", () => {
       pickFile();
 
       expect(await screen.findByRole("heading", { name: "Solaris" })).toBeInTheDocument();
-      expect(screen.getByText("Dociągam okładkę...")).toBeInTheDocument();
+      // Only the shimmer on the tile says the cover is coming — no status text.
+      expect(screen.queryByText(/Dociągam/i)).not.toBeInTheDocument();
+      expect(screen.getByTestId("stage-shimmer").style.opacity).toBe("1");
       expect(container.querySelector("img")).toBeNull();
       expect(mockComplete).toHaveBeenCalledWith(expect.objectContaining({ recognized: RECOGNIZED }));
 
@@ -328,7 +330,7 @@ describe("AddScreen", () => {
 
       await waitFor(() => expect(container.querySelector("img")).toHaveAttribute("src", CATALOG_COVER));
       expect(container.querySelector("img")!.style.animation).toContain("kCoverIn");
-      expect(screen.queryByText("Dociągam okładkę...")).not.toBeInTheDocument();
+      expect(screen.getByTestId("stage-shimmer").style.opacity).toBe("0");
     });
 
     it("shows the photo when no catalog has a cover", async () => {

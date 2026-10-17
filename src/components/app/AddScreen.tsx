@@ -475,13 +475,7 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
 
   const idle = phase === "idle";
   const found = phase === "found";
-  const prompt = idle
-    ? "Dotknij, aby zeskanować okładkę"
-    : phase === "scanning"
-      ? label
-      : item?.recognized
-        ? "Dociągam okładkę..."
-        : "";
+  const prompt = idle ? "Dotknij, aby zeskanować okładkę" : phase === "scanning" ? label : "";
   const pickedItem = selected !== null ? results[selected] : null;
 
   return (

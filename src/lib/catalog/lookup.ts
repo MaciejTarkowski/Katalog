@@ -78,6 +78,8 @@ async function lookupByQuery(
 ): Promise<CatalogItem | null> {
   const q = cleanSearchQuery(query);
   if (!q) return null;
+  // RAWG matches names only: "title + studio" returns some other game, so search by the title when known.
+  const gameQuery = (known?.title && cleanSearchQuery(known.title)) || q;
 
   if (categoryHint === "book" || categoryHint === "comic") {
     return searchOpenLibrary(q, categoryHint);
@@ -86,7 +88,7 @@ async function lookupByQuery(
     return pickBest(await settled([searchMusicBrainz(q, known), searchDiscogs(q)]), categoryHint, q);
   }
   if (categoryHint === "game") {
-    return searchRawg(q);
+    return searchRawg(gameQuery);
   }
 
   return pickBest(
@@ -94,7 +96,7 @@ async function lookupByQuery(
       searchOpenLibrary(q),
       searchMusicBrainz(q, known),
       searchDiscogs(q),
-      searchRawg(q),
+      searchRawg(gameQuery),
     ]),
     categoryHint,
     q

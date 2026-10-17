@@ -427,6 +427,27 @@ describe("lookupCatalogItem", () => {
     expect(item?.cover_url).toBeNull();
   });
 
+  it("searches RAWG by the recognized title alone, without the studio that confuses its search", async () => {
+    const searches: string[] = [];
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
+      const href = String(url);
+      if (href.includes("api.rawg.io")) {
+        searches.push(new URL(href).searchParams.get("search") ?? "");
+        return jsonResponse({ results: [{ name: "Red Dead Redemption 2", released: "2018-10-26" }] });
+      }
+      return jsonResponse({ results: [], docs: [] });
+    });
+
+    const item = await lookupCatalogItem({
+      query: "Red Dead Redemption 2 Rockstar Games",
+      title: "Red Dead Redemption 2",
+      creator: "Rockstar Games",
+      category: "game",
+    });
+    expect(searches).toEqual(["Red Dead Redemption 2"]);
+    expect(item?.title).toBe("Red Dead Redemption 2");
+  });
+
   it("returns null when no provider matches", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse({ results: [], docs: [], releases: [] })
