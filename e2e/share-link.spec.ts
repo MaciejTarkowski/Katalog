@@ -13,7 +13,7 @@ import {
 test.describe("5. Link udostępniania", () => {
   test("ekran Udostępnij pokazuje i kopiuje link /share/<userId>", async ({ page, context, baseURL }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL });
-    await mockBackend(page);
+    await mockBackend(page, SEED_ITEMS, { shared: false });
     await login(page);
 
     await openTab(page, "Udostępnij");
@@ -27,6 +27,28 @@ test.describe("5. Link udostępniania", () => {
 
     const copied = await page.evaluate(() => navigator.clipboard.readText());
     expect(copied).toBe(`${baseURL}/share/${USER_ID}`);
+  });
+
+  test("prywatna kolekcja pokazuje gościowi komunikat, a właściciel może ją udostępnić i wyłączyć", async ({ page, browser }) => {
+    await mockBackend(page, SEED_ITEMS, { shared: false });
+    await login(page);
+
+    // Gość: komunikat zamiast kolekcji.
+    const guest = await (await browser.newContext()).newPage();
+    await mockBackend(guest, SEED_ITEMS, { shared: false });
+    await guest.goto(`/share/${USER_ID}`);
+    await expect(guest.getByText("Ta kolekcja jest prywatna")).toBeVisible();
+    await expect(guest.getByTestId(/^item-card-/)).toHaveCount(0);
+
+    await openTab(page, "Udostępnij");
+    await expect(page.getByText(/Twoja kolekcja jest prywatna, dopóki jej nie udostępnisz/)).toBeVisible();
+    await page.locator("button:not(nav button)", { hasText: "Udostępnij" }).click();
+    await expect(page.getByTestId("share-url")).toBeVisible();
+
+    await page.getByRole("button", { name: "Przestań udostępniać" }).click();
+    await expect(page.getByText("Udostępnianie wyłączone – link już nie działa")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Kopiuj link" })).toHaveCount(0);
+    await guest.context().close();
   });
 
   test("kolekcja jest widoczna dla niezalogowanego gościa", async ({ page }) => {

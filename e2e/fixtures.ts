@@ -95,9 +95,12 @@ export async function mockBackend(
   {
     collectionTypes = ALL_TYPES,
     locale = "pl",
-  }: { collectionTypes?: string[] | null; locale?: string | null } = {}
+    shared = true,
+  }: { collectionTypes?: string[] | null; locale?: string | null; shared?: boolean } = {}
 ): Promise<Backend> {
   let storedTypes = collectionTypes;
+  // Kolekcje są prywatne, dopóki właściciel nie włączy udostępniania (profiles.share_enabled).
+  let storedShared = shared;
   // The app defaults to English; these specs check the Polish UI (null = keep the default).
   if (locale) {
     await page.addInitScript((value) => window.localStorage.setItem("katalog.locale", value), locale);
@@ -157,7 +160,9 @@ export async function mockBackend(
     if (req.method() === "GET") {
       const id = new URL(req.url()).searchParams.get("id")?.replace(/^eq\./, "");
       const profile =
-        id === USER_ID ? { id: USER_ID, display_name: USER_DISPLAY_NAME, collection_types: storedTypes } : null;
+        id === USER_ID
+          ? { id: USER_ID, display_name: USER_DISPLAY_NAME, collection_types: storedTypes, share_enabled: storedShared }
+          : null;
       return profile
         ? route.fulfill({ json: profile })
         : route.fulfill({ status: 406, json: { code: "PGRST116", message: "0 rows" } });
@@ -165,7 +170,33 @@ export async function mockBackend(
     backend.writes.push(req);
     const body = req.postDataJSON();
     if (body && "collection_types" in body) storedTypes = body.collection_types;
+    if (body && "share_enabled" in body) storedShared = body.share_enabled;
     return route.fulfill({ status: 201, json: [] });
+  });
+
+  // Udostępniona kolekcja gościa: funkcje RPC zwracają dane tylko przy włączonym udostępnianiu.
+  await page.route(`${SUPABASE}/rest/v1/rpc/shared_profile`, async (route) => {
+    const { p_user_id } = route.request().postDataJSON();
+    const visible = storedShared && p_user_id === USER_ID;
+    return route.fulfill({
+      json: visible ? [{ display_name: USER_DISPLAY_NAME, collection_types: storedTypes }] : [],
+    });
+  });
+
+  await page.route(`${SUPABASE}/rest/v1/rpc/shared_items**`, async (route) => {
+    const { p_user_id } = route.request().postDataJSON();
+    const category = new URL(route.request().url()).searchParams.get("category");
+    let rows = storedShared && p_user_id === USER_ID ? backend.items.filter((r) => r.user_id === USER_ID) : [];
+    if (category?.startsWith("eq.")) rows = rows.filter((r) => r.category === category.slice(3));
+    return route.fulfill({ json: rows });
+  });
+
+  await page.route(`${SUPABASE}/rest/v1/rpc/shared_item`, async (route) => {
+    const { p_id } = route.request().postDataJSON();
+    const row = storedShared ? backend.items.find((r) => r.id === p_id && r.user_id === USER_ID) : undefined;
+    return row
+      ? route.fulfill({ json: row })
+      : route.fulfill({ status: 406, json: { code: "PGRST116", message: "0 rows" } });
   });
 
   await page.route(`${SUPABASE}/rest/v1/items**`, async (route) => {
@@ -179,17 +210,6 @@ export async function mockBackend(
       if (userFilter?.startsWith("eq.")) rows = rows.filter((r) => r.user_id === userFilter.slice(3));
       const catFilter = url.searchParams.get("category");
       if (catFilter?.startsWith("eq.")) rows = rows.filter((r) => r.category === catFilter.slice(3));
-      const notUser = url.searchParams.get("user_id")?.startsWith("neq.")
-        ? url.searchParams.get("user_id")!.slice(4)
-        : null;
-      if (notUser) rows = rows.filter((r) => r.user_id !== notUser);
-      // searchCommunityItems: or=(title.ilike.%x%,artist_creator.ilike.%x%)
-      const term = url.searchParams.get("or")?.match(/ilike\.%([^%]*)%/)?.[1]?.toLowerCase();
-      if (term) {
-        rows = rows.filter((r) =>
-          `${r.title} ${r.artist_creator ?? ""}`.toLowerCase().includes(term)
-        );
-      }
       const idFilter = url.searchParams.get("id");
       if (idFilter?.startsWith("eq.")) rows = rows.filter((r) => r.id === idFilter.slice(3));
       if ((req.headers()["accept"] || "").includes("vnd.pgrst.object")) {
@@ -240,7 +260,7 @@ export async function login(page: Page) {
   await expect(page.getByRole("navigation", { name: "Nawigacja" })).toBeVisible();
 }
 
-export type TabName = "Home" | "Szukaj" | "Dodaj" | "Udostępnij" | "Profil";
+export type TabName = "Start" | "Szukaj" | "Dodaj" | "Udostępnij" | "Profil";
 
 /** Przełącza zakładkę w dolnym pasku nawigacji. */
 export async function openTab(page: Page, name: TabName) {

@@ -5,7 +5,6 @@ import {
   fetchItemById,
   addItem,
   deleteItem,
-  searchCommunityItems,
   updateItemMetadata,
 } from "../api";
 
@@ -297,58 +296,5 @@ describe("Items API", () => {
     currentQueryResult = { data: null, error: { message: "invalid input syntax for type uuid" } };
     const result = await fetchItemById("bad");
     expect(result).toEqual({ data: null, error: "invalid input syntax for type uuid" });
-  });
-
-  it("searchCommunityItems matches title or creator in other users' items", async () => {
-    currentQueryResult = { data: [], error: null };
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
-
-    await searchCommunityItems("  Gruby Brzuch ");
-    expect(mockQueryOr).toHaveBeenCalledWith(
-      "title.ilike.%Gruby Brzuch%,artist_creator.ilike.%Gruby Brzuch%"
-    );
-    expect(mockQueryNeq).toHaveBeenCalledWith("user_id", "user-123");
-  });
-
-  it("searchCommunityItems strips characters that would break the filter", async () => {
-    currentQueryResult = { data: [], error: null };
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-    await searchCommunityItems("Gra (PS5), 100%");
-    expect(mockQueryOr).toHaveBeenCalledWith("title.ilike.%Gra PS5 100%,artist_creator.ilike.%Gra PS5 100%");
-    expect(mockQueryNeq).not.toHaveBeenCalled();
-  });
-
-  it("searchCommunityItems returns each title once, without owner data", async () => {
-    currentQueryResult = {
-      data: [
-        { id: "1", user_id: "a", title: "Gruby Brzuch", artist_creator: "Grubson", category: "music", subcategory: "CD", cover_url: "https://x/1.jpg", metadata: { year: "2012" } },
-        { id: "2", user_id: "b", title: "gruby brzuch", artist_creator: "Grubson", category: "music", subcategory: null, cover_url: null, metadata: {} },
-        { id: "3", user_id: "c", title: "Gruby Brzuch", artist_creator: "Grubson", category: "game", subcategory: null, cover_url: null, metadata: {} },
-      ],
-      error: null,
-    };
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-    const result = await searchCommunityItems("gruby");
-    expect(result.error).toBeNull();
-    expect(result.data).toEqual([
-      { title: "Gruby Brzuch", artist_creator: "Grubson", category: "music", subcategory: "CD", cover_url: "https://x/1.jpg", metadata: { year: "2012" } },
-      { title: "Gruby Brzuch", artist_creator: "Grubson", category: "game", subcategory: null, cover_url: null, metadata: {} },
-    ]);
-  });
-
-  it("searchCommunityItems skips the query for less than 2 characters", async () => {
-    const result = await searchCommunityItems(" a ");
-    expect(result).toEqual({ data: [], error: null });
-    expect(mockSelect).not.toHaveBeenCalled();
-  });
-
-  it("searchCommunityItems returns the database error", async () => {
-    currentQueryResult = { data: null, error: { message: "boom" } };
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-    const result = await searchCommunityItems("Solaris");
-    expect(result).toEqual({ data: null, error: "boom" });
   });
 });

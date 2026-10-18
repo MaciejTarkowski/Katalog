@@ -22,13 +22,13 @@ export function ShareScreen({ userId, name, items, sharing, onSharingChange, onT
   const shared = sharing;
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [shareUrl, setShareUrl] = useState("");
+  // The screen only renders in the browser after sign-in, so the origin is known here.
+  const shareUrl = typeof window === "undefined" ? "" : `${window.location.origin}/share/${userId}`;
   const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const covered = items.filter((i) => i.cover_url);
   const fan = [covered[0] ?? items[0], covered[1] ?? items[1], covered[2] ?? items[2]];
 
   useEffect(() => () => clearTimeout(copyTimer.current), []);
-  useEffect(() => setShareUrl(`${window.location.origin}/share/${userId}`), [userId]);
 
   const change = async (enabled: boolean) => {
     setBusy(true);

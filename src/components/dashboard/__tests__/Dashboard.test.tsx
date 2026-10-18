@@ -48,7 +48,6 @@ vi.mock("@/lib/items/api", () => ({
   }),
   addItem: vi.fn(),
   deleteItem: (id: string) => mockDeleteItem(id),
-  searchCommunityItems: vi.fn().mockResolvedValue({ data: [], error: null }),
 }));
 
 const mockEnsureProfile = vi.fn();

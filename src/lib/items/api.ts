@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { CommunityItem, Item, ItemInsert } from "@/types/database";
+import { Item, ItemInsert } from "@/types/database";
 import { t } from "@/lib/i18n/locale";
 import { canonicalTerm, displayTerm } from "./terms";
 
@@ -186,62 +186,5 @@ export async function deleteItem(id: string): Promise<{ success: boolean; error:
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : t("items.error.delete");
     return { success: false, error: message };
-  }
-}
-
-/**
- * Searches other users' items (public read RLS) by title or creator — the fallback
- * when recognition and the catalog APIs find nothing. Returns each title once,
- * without owner data.
- */
-export async function searchCommunityItems(
-  query: string
-): Promise<{ data: CommunityItem[] | null; error: string | null }> {
-  // Characters that would break the PostgREST `or` filter or act as wildcards.
-  const term = query.replace(/[,()%*_\\"]/g, " ").replace(/\s+/g, " ").trim();
-  if (term.length < 2) {
-    return { data: [], error: null };
-  }
-
-  try {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    let request = supabase
-      .from("items")
-      .select("title, artist_creator, category, subcategory, cover_url, metadata")
-      .or(`title.ilike.%${term}%,artist_creator.ilike.%${term}%`);
-    if (user) {
-      request = request.neq("user_id", user.id);
-    }
-
-    const { data, error } = await request.order("created_at", { ascending: false }).limit(50);
-    if (error) {
-      return { data: null, error: error.message };
-    }
-
-    const seen = new Set<string>();
-    const unique: CommunityItem[] = [];
-    for (const row of (data as CommunityItem[]) || []) {
-      const key = [row.title, row.artist_creator ?? "", row.category]
-        .map((part) => part.trim().toLowerCase())
-        .join("|");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      unique.push({
-        title: row.title,
-        artist_creator: row.artist_creator,
-        category: row.category,
-        subcategory: row.subcategory,
-        cover_url: row.cover_url,
-        metadata: row.metadata ?? {},
-      });
-    }
-    return { data: unique, error: null };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : t("items.error.searchCommunity");
-    return { data: null, error: message };
   }
 }

@@ -10,7 +10,6 @@ const mockScan = vi.fn();
 const mockComplete = vi.fn();
 const mockLookup = vi.fn();
 const mockSearch = vi.fn();
-const mockCommunity = vi.fn();
 const mockUpload = vi.fn();
 
 // The scan pipeline (Gemini, OCR, catalogs) is always mocked.
@@ -25,7 +24,6 @@ vi.mock("@/lib/scan/pipeline", async (importOriginal) => {
   };
 });
 vi.mock("@/lib/items/api", () => ({
-  searchCommunityItems: (q: string) => mockCommunity(q),
 }));
 vi.mock("@/lib/storage/upload", () => ({
   uploadCoverImage: (url: string) => mockUpload(url),
@@ -61,7 +59,6 @@ describe("AddScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUpload.mockResolvedValue({ publicUrl: "https://cdn.example/solaris.jpg", error: null });
-    mockCommunity.mockResolvedValue({ data: [], error: null });
     mockLookup.mockRejectedValue(new Error("Brak wyników"));
     mockSearch.mockResolvedValue({ items: [], hasMore: false });
   });
@@ -131,14 +128,13 @@ describe("AddScreen", () => {
     expect(screen.getByRole("searchbox", { name: "Tytuł lub twórca" })).toHaveValue("SOLARIS LEM");
   });
 
-  it("searches catalogs and other users' items, then adds the picked one", async () => {
+  it("searches the catalogs, then adds the picked one", async () => {
     mockSearch.mockResolvedValue({
-      items: [{ ...SOLARIS, previewUrl: undefined, cover_url: "https://covers.example/s.jpg" }],
+      items: [
+        { ...SOLARIS, previewUrl: undefined, cover_url: "https://covers.example/s.jpg" },
+        { title: "Cyberiada", artist_creator: "Stanisław Lem", category: "book", subcategory: null, cover_url: null, metadata: {} },
+      ],
       hasMore: false,
-    });
-    mockCommunity.mockResolvedValue({
-      data: [{ title: "Cyberiada", artist_creator: "Stanisław Lem", category: "book", subcategory: null, cover_url: null, metadata: {} }],
-      error: null,
     });
     render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
 
@@ -148,8 +144,7 @@ describe("AddScreen", () => {
     const pick = await screen.findByRole("button", { name: /Cyberiada/ });
     expect(mockSearch).toHaveBeenCalledWith("lem", { categories: expect.arrayContaining(["book", "music", "game", "comic"]) });
     expect(mockLookup).not.toHaveBeenCalled();
-    expect(mockCommunity).toHaveBeenCalledWith("lem");
-    expect(screen.getByText("2 wpisy w katalogach i kolekcjach")).toBeInTheDocument();
+    expect(screen.getByText("2 wpisy w katalogach")).toBeInTheDocument();
 
     const plus = screen.getByRole("button", { name: "Dodaj wybraną pozycję" });
     expect(plus).toBeDisabled();
@@ -171,11 +166,10 @@ describe("AddScreen", () => {
 
     expect(await screen.findByRole("button", { name: /Album E/ })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Album [A-E]/ })).toHaveLength(5);
-    expect(screen.getByText("5 wpisów w katalogach i kolekcjach")).toBeInTheDocument();
+    expect(screen.getByText("5 wpisów w katalogach")).toBeInTheDocument();
   });
 
-  it("searches only the chosen category and filters community items by it", async () => {
-    mockCommunity.mockResolvedValue({ data: albums(["Cyberiada"], "book"), error: null });
+  it("searches only the chosen category", async () => {
     mockSearch.mockResolvedValue({ items: albums(["Gra A"], "game"), hasMore: false });
     render(<AddScreen onAdd={vi.fn()} onToast={vi.fn()} />);
 
@@ -185,14 +179,9 @@ describe("AddScreen", () => {
 
     expect(await screen.findByRole("button", { name: /Gra A/ })).toBeInTheDocument();
     expect(mockSearch).toHaveBeenLastCalledWith("gra", { category: "game" });
-    expect(screen.queryByRole("button", { name: /Cyberiada/ })).not.toBeInTheDocument();
   });
 
-  it("with \"All\" searches only the categories kept in the catalog, community items included", async () => {
-    mockCommunity.mockResolvedValue({
-      data: [...albums(["Cyberiada"], "book"), ...albums(["Gra B"], "game")],
-      error: null,
-    });
+  it("with \"All\" searches only the categories kept in the catalog", async () => {
     mockSearch.mockResolvedValue({ items: albums(["Gra A"], "game"), hasMore: false });
     render(
       <AddScreen
@@ -207,8 +196,6 @@ describe("AddScreen", () => {
 
     expect(await screen.findByRole("button", { name: /Gra A/ })).toBeInTheDocument();
     expect(mockSearch).toHaveBeenLastCalledWith("gra", { categories: ["game"] });
-    expect(screen.getByRole("button", { name: /Gra B/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Cyberiada/ })).not.toBeInTheDocument();
   });
 
   it("lets a long title's content scroll so the action buttons stay reachable", async () => {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { CommunityItem } from "@/types/database";
 import {
   PHASE_LABEL,
   ScanError,
@@ -11,7 +10,6 @@ import {
   type ScanPhase as PipelinePhase,
   type ScannedItemData,
 } from "@/lib/scan/pipeline";
-import { CommunitySearchDialog } from "./CommunitySearchDialog";
 import { useI18n } from "@/lib/i18n/locale";
 
 export type { ScannedItemData };
@@ -31,11 +29,6 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
   const [phase, setPhase] = useState<ScanPhase>("idle");
   const [statusText, setStatusText] = useState("");
   const [manualSearch, setManualSearch] = useState<{
-    query: string;
-    previewUrl?: string;
-  } | null>(null);
-  // Pop-up over other users' items, opened when recognition and catalogs find nothing.
-  const [communitySearch, setCommunitySearch] = useState<{
     query: string;
     previewUrl?: string;
   } | null>(null);
@@ -82,7 +75,6 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
       const previewUrl = err instanceof ScanError ? err.previewUrl : undefined;
       onError?.(message);
       setManualSearch({ query, previewUrl });
-      setCommunitySearch({ query, previewUrl });
     } finally {
       setPhase("idle");
       setStatusText("");
@@ -103,17 +95,10 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
       const message =
         err instanceof Error ? err.message : t("scan.searchError");
       onError?.(message);
-      setCommunitySearch({ query, previewUrl: manualSearch.previewUrl });
     } finally {
       setPhase("idle");
       setStatusText("");
     }
-  };
-
-  const handleCommunitySelect = (item: CommunityItem) => {
-    finishWithData(item, communitySearch?.previewUrl);
-    setCommunitySearch(null);
-    setManualSearch(null);
   };
 
   return (
@@ -173,14 +158,6 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
             {t("scan.search")}
           </button>
         </div>
-      )}
-
-      {communitySearch && (
-        <CommunitySearchDialog
-          initialQuery={communitySearch.query}
-          onSelect={handleCommunitySelect}
-          onClose={() => setCommunitySearch(null)}
-        />
       )}
     </div>
   );

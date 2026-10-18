@@ -38,7 +38,7 @@ test.describe("2. Dodanie elementu ze zdjęcia (rozpoznawanie zamockowane)", () 
       subcategory: "vinyl",
     });
 
-    await openTab(page, "Home");
+    await openTab(page, "Start");
     await expect(page.getByTestId("item-card-new-1")).toBeVisible();
     await expect(page.getByTestId("item-card-new-1").getByRole("heading", { name: SCANNED.title })).toBeVisible();
   });
@@ -54,7 +54,7 @@ test.describe("2. Dodanie elementu ze zdjęcia (rozpoznawanie zamockowane)", () 
     await expect(sheet).toBeHidden();
 
     expect(backend.inserts).toHaveLength(0);
-    await openTab(page, "Home");
+    await openTab(page, "Start");
     await expect(page.getByTestId(/^item-card-new/)).toHaveCount(0);
   });
 });

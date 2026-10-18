@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ItemInsert } from "@/types/database";
-import { searchCommunityItems } from "@/lib/items/api";
 import { uploadCoverImage } from "@/lib/storage/upload";
 import {
   PHASE_LABEL,
@@ -366,12 +365,10 @@ export function AddScreen({ categories: shownCategories, onAdd, onToast }: AddSc
     }
   };
 
-  // Debounced search over catalogs (one page per call) and other users' items.
+  // Debounced search over catalogs (one page per call).
   // "All" means all the categories kept in this catalog, never every category the providers know.
   const searchScope = (category: string) =>
     category === "all" ? { categories: categories.map((c) => c.value) } : { category };
-  const inScope = (itemCategory: string, category: string) =>
-    category === "all" ? categories.some((c) => c.value === itemCategory) : itemCategory === category;
 
   const search = (value: string, category = searchCategory) => {
     setQuery(value);
@@ -389,15 +386,11 @@ export function AddScreen({ categories: shownCategories, onAdd, onToast }: AddSc
     }
     setSearching(true);
     searchTimer.current = setTimeout(async () => {
-      const [catalog, community] = await Promise.all([
-        searchCatalogItems(text, searchScope(category)).catch(
-          (): CatalogSearchPage => ({ items: [], hasMore: false })
-        ),
-        searchCommunityItems(text).then((r) => r.data ?? []).catch(() => []),
-      ]);
+      const catalog = await searchCatalogItems(text, searchScope(category)).catch(
+        (): CatalogSearchPage => ({ items: [], hasMore: false })
+      );
       if (seq !== searchSeq.current) return;
-      const communityHits = community.filter((r) => inScope(r.category, category));
-      setResults([...catalog.items, ...communityHits]);
+      setResults(catalog.items);
       setHasMore(catalog.hasMore);
       setSearching(false);
     }, 450);

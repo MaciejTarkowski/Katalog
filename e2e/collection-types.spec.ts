@@ -52,7 +52,7 @@ test.describe("Typy pozycji w katalogu", () => {
     await page.getByRole("group", { name: "Typy pozycji" }).getByRole("button", { name: "Muzyka" }).click();
     await page.getByRole("button", { name: "Zapisz" }).click();
 
-    await openTab(page, "Home");
+    await openTab(page, "Start");
     await expect(page.getByRole("region", { name: "Muzyka" }).getByTestId("item-card-m1")).toBeVisible();
   });
 });
