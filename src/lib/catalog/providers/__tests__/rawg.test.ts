@@ -93,4 +93,15 @@ describe("RAWG + IGDB covers", () => {
     expect(item?.subcategory).toBe("PlayStation 3");
     expect(item?.cover_url).toContain("/ps3.jpg");
   });
+
+  it("returns null instead of another game when no RAWG result matches the title", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
+      const href = String(url);
+      if (href.includes("api.rawg.io")) return json({ results: [{ name: "Wiedźmin 3: Dziki Gon", platforms: [] }] });
+      if (href.includes("id.twitch.tv")) return json({ access_token: "tok", expires_in: 3600 });
+      if (href.includes("api.igdb.com")) return json([{ name: "Wiedźmin 3: Dziki Gon", cover: { image_id: "wrong" } }]);
+      return json({}, false, 404);
+    });
+    expect(await searchRawg("Wiedza to potęga", "PS4")).toBeNull();
+  });
 });

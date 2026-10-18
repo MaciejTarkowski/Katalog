@@ -50,7 +50,7 @@ async function withIgdbCover(item: CatalogItem | null, platform?: string | null)
   return { ...item, cover_url: await findIgdbCover(item.title, platform) };
 }
 
-/** The result whose title matches the query, preferring the one on `platform`; otherwise RAWG's first. */
+/** The result whose title matches the query, preferring the one on `platform`; never an unrelated game. */
 function pickGame(games: RawgGame[], query: string, platform?: string | null): RawgGame | undefined {
   const named = games.filter((g) => g.name && textsOverlap(g.name, query));
   const exact = (g: RawgGame) => normalizeForMatch(g.name ?? "") === normalizeForMatch(query);
@@ -59,8 +59,7 @@ function pickGame(games: RawgGame[], query: string, platform?: string | null): R
     named.find((g) => exact(g) && onPlatform(g)) ??
     named.find(exact) ??
     named.find(onPlatform) ??
-    named[0] ??
-    games[0]
+    named[0]
   );
 }
 
