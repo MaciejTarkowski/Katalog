@@ -84,10 +84,10 @@ CREATE POLICY "Public read covers"
     ON storage.objects FOR SELECT
     USING (bucket_id = 'covers');
 
--- Logowani użytkownicy mogą dodawać okładki
-CREATE POLICY "Authenticated users can upload covers"
+-- Okładki wgrywa się tylko do własnego folderu <userId>/
+CREATE POLICY "Users can upload covers to own folder"
     ON storage.objects FOR INSERT
-    WITH CHECK (bucket_id = 'covers' AND auth.role() = 'authenticated');
+    WITH CHECK (bucket_id = 'covers' AND auth.uid()::text = (storage.foldername(name))[1]);
 
 -- Właściciel może usuwać swoje pliki
 CREATE POLICY "Users can delete own covers"
