@@ -1,5 +1,5 @@
-export const CATALOG_USER_AGENT =
-  "Katalog/0.1.0 (https://github.com/katalog-app; metadata-lookup)";
+/** MusicBrainz and Wikipedia ask API clients for a real contact address in the User-Agent. */
+export const CATALOG_USER_AGENT = "Katalog/0.1.0 (nerdousai@gmail.com; metadata-lookup)";
 
 /** A provider slower than this is dropped, so it cannot hold up the whole scan. */
 export const CATALOG_TIMEOUT_MS = 6000;

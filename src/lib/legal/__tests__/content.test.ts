@@ -27,7 +27,7 @@ describe("legal content", () => {
 
   it("names every processor the app really sends data to", () => {
     const text = allText(PRIVACY, "en");
-    for (const name of ["Supabase", "Vercel", "Gemini", "Open Library", "MusicBrainz", "Discogs", "RAWG", "IGDB", "Wikipedia"]) {
+    for (const name of ["Supabase", "Vercel", "Gemini", "Open Library", "MusicBrainz", "Discogs", "RAWG", "IGDB", "Wikipedia", "Google Fonts"]) {
       expect(text).toContain(name);
     }
   });
