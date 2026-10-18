@@ -209,3 +209,46 @@ export async function updateShareEnabled(enabled: boolean): Promise<{ success: b
     return { success: false, error: message };
   }
 }
+
+const COVERS_PAGE = 100;
+
+/**
+ * Permanently deletes the signed-in user's account with everything in it: cover files first (they can
+ * only be removed while still signed in, so a failure here keeps the account), then the account itself
+ * (profile and items go with it through ON DELETE CASCADE), then the local session.
+ */
+export async function deleteAccount(): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: t("auth.notLoggedIn") };
+    }
+
+    const covers = supabase.storage.from("covers");
+    for (;;) {
+      const { data: files, error: listError } = await covers.list(user.id, { limit: COVERS_PAGE });
+      if (listError) return { success: false, error: listError.message };
+      if (!files?.length) break;
+      const { error: removeError } = await covers.remove(files.map((file) => `${user.id}/${file.name}`));
+      if (removeError) return { success: false, error: removeError.message };
+      if (files.length < COVERS_PAGE) break;
+    }
+
+    const { error } = await supabase.rpc("delete_my_account");
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // The account no longer exists, so the server may refuse to end the session; the local one is dropped anyway.
+    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    return { success: true, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : t("profile.error.delete");
+    return { success: false, error: message };
+  }
+}

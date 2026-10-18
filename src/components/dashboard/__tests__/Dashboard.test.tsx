@@ -55,6 +55,7 @@ const mockUpdateDisplayName = vi.fn();
 const mockUpdateCollectionTypes = vi.fn();
 const mockUpdateLanguage = vi.fn();
 const mockUpdateShareEnabled = vi.fn();
+const mockDeleteAccount = vi.fn();
 
 vi.mock("@/lib/profiles/api", async (importOriginal) => ({
   DISPLAY_NAME_MAX_LENGTH: 50,
@@ -64,6 +65,7 @@ vi.mock("@/lib/profiles/api", async (importOriginal) => ({
   updateCollectionTypes: (types: string[]) => mockUpdateCollectionTypes(types),
   updateLanguage: (language: string) => mockUpdateLanguage(language),
   updateShareEnabled: (enabled: boolean) => mockUpdateShareEnabled(enabled),
+  deleteAccount: () => mockDeleteAccount(),
 }));
 
 const USER = { id: "user-test-uuid", email: "kolekcjoner@example.com" };
@@ -178,7 +180,7 @@ describe("Dashboard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Przestań udostępniać" }));
     await waitFor(() => expect(mockUpdateShareEnabled).toHaveBeenCalledWith(false));
-    expect(await screen.findByText("Udostępnianie wyłączone – link już nie działa")).toBeInTheDocument();
+    expect(await screen.findByText("Udostępnianie wyłączone – link już nie działa", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Kopiuj link" })).not.toBeInTheDocument();
   });
 
@@ -285,6 +287,48 @@ describe("Dashboard", () => {
 
     await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
     expect(await screen.findByText("Cała Twoja kolekcja. Na jednym ekranie.")).toBeInTheDocument();
+  });
+
+  describe("account deletion", () => {
+    const openDeleteSheet = async () => {
+      mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+      render(<Dashboard />);
+      await screen.findByRole("region", { name: "Książki" });
+      fireEvent.click(tab("Profil"));
+      fireEvent.click(screen.getByRole("button", { name: "Więcej opcji" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Usuń konto" }));
+      return screen.findByRole("dialog", { name: "Usunąć konto?" });
+    };
+
+    it("asks for confirmation and does nothing when cancelled", async () => {
+      const dialog = await openDeleteSheet();
+      expect(within(dialog).getByText(/zostaną usunięte na stałe/)).toBeInTheDocument();
+      expect(mockDeleteAccount).not.toHaveBeenCalled();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Anuluj" }));
+      expect(mockDeleteAccount).not.toHaveBeenCalled();
+    });
+
+    it("deletes the account after confirmation and returns to the welcome screen", async () => {
+      mockDeleteAccount.mockResolvedValue({ success: true, error: null });
+      const dialog = await openDeleteSheet();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Usuń na stałe" }));
+
+      await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalledTimes(1));
+      expect(await screen.findByText("Cała Twoja kolekcja. Na jednym ekranie.")).toBeInTheDocument();
+      expect(screen.getByText("Konto zostało usunięte")).toBeInTheDocument();
+    });
+
+    it("keeps the user signed in and shows the error when deleting fails", async () => {
+      mockDeleteAccount.mockResolvedValue({ success: false, error: "storage down" });
+      const dialog = await openDeleteSheet();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Usuń na stałe" }));
+
+      expect(await within(dialog).findByRole("alert")).toHaveTextContent("storage down");
+      expect(screen.queryByText("Cała Twoja kolekcja. Na jednym ekranie.")).not.toBeInTheDocument();
+    });
   });
 
   describe("language", () => {

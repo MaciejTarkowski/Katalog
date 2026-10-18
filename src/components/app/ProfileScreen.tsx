@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Item } from "@/types/database";
 import { collectionSummary, compareTitles, initialOf, localizedCategories, type CategoryDef } from "@/lib/items/display";
 import { DISPLAY_NAME_MAX_LENGTH, updateDisplayName } from "@/lib/profiles/api";
-import { Cover, Icon } from "@/components/ui/primitives";
+import { Cover, Icon, Sheet } from "@/components/ui/primitives";
 import { useI18n } from "@/lib/i18n/locale";
 import { LOCALES, LOCALE_NAMES, type Locale } from "@/lib/i18n/config";
 
@@ -16,6 +16,8 @@ interface ProfileScreenProps {
   onOpen: (item: Item) => void;
   onNameSaved: (name: string) => void;
   onSignOut: () => void;
+  /** Permanently deletes the account; resolves to null on success, or the error message to show. */
+  onDeleteAccount: () => Promise<string | null>;
   onEditTypes: () => void;
   onLanguageChange: (locale: Locale) => void;
   onToast: (message: string) => void;
@@ -28,6 +30,7 @@ export function ProfileScreen({
   onOpen,
   onNameSaved,
   onSignOut,
+  onDeleteAccount,
   onEditTypes,
   onLanguageChange,
   onToast,
@@ -40,6 +43,9 @@ export function ProfileScreen({
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState("all");
   const [sortNew, setSortNew] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const stats = [{ value: "all", label: t("profile.statsAll"), color: "var(--ac)" }, ...categories].map((c) => ({
     ...c,
@@ -48,6 +54,20 @@ export function ProfileScreen({
   const active = stats.find((s) => s.value === category);
   let shown = items.filter((i) => category === "all" || i.category === category);
   if (!sortNew) shown = shown.slice().sort((a, b) => compareTitles(a.title, b.title, locale));
+
+  const closeDelete = () => {
+    if (deleting) return;
+    setConfirmDelete(false);
+    setDeleteError(null);
+  };
+
+  const deleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    const failure = await onDeleteAccount();
+    setDeleting(false);
+    if (failure) setDeleteError(failure);
+  };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,9 +137,47 @@ export function ProfileScreen({
               <Icon name="logout" size={21} />
               {t("profile.signOut")}
             </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenu(false);
+                setConfirmDelete(true);
+              }}
+              className="w-full flex items-center gap-2.5 h-[46px] px-3 rounded-[11px] text-rose-400 text-[15px] font-semibold hover:bg-rose-400/10"
+            >
+              <Icon name="delete_forever" size={21} />
+              {t("profile.deleteAccount")}
+            </button>
           </div>
         </>
       )}
+
+      <Sheet open={confirmDelete} onClose={closeDelete} label={t("profile.delete.title")} className="px-5 pb-10 gap-3">
+        <h2 className="text-lg font-bold tracking-[-.02em]">{t("profile.delete.title")}</h2>
+        <p className="text-[14.5px] leading-[1.5] text-mu">{t("profile.delete.text")}</p>
+        {deleteError && (
+          <p role="alert" className="text-[13px] text-rose-400">
+            {deleteError}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => void deleteAccount()}
+          disabled={deleting}
+          className="h-[50px] rounded-[15px] bg-rose-500 text-white text-[15px] font-semibold disabled:opacity-60"
+        >
+          {deleting ? t("profile.delete.busy") : t("profile.delete.confirm")}
+        </button>
+        <button
+          type="button"
+          onClick={closeDelete}
+          disabled={deleting}
+          className="h-[50px] rounded-[15px] bg-white/[.06] border border-white/15 text-tx text-[15px] font-semibold disabled:opacity-60"
+        >
+          {t("common.cancel")}
+        </button>
+      </Sheet>
 
       <div className="flex flex-col items-center px-5 pt-1.5">
         <div className="w-[108px] h-[108px] rounded-full p-[3px] gradient-ac">

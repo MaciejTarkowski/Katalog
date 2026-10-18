@@ -10,6 +10,7 @@ import {
   nameFromMetadata,
   updateCollectionTypes,
   updateLanguage,
+  deleteAccount,
   updateShareEnabled,
 } from "@/lib/profiles/api";
 import { CATEGORIES, filterByTypes, initialOf, visibleCategories } from "@/lib/items/display";
@@ -124,6 +125,22 @@ export function Dashboard() {
     setEditingTypes(false);
     setTab("home");
     setDetail(null);
+  };
+
+  /** Returns null on success, or the error message to show the user. */
+  const handleDeleteAccount = async (): Promise<string | null> => {
+    const { success, error } = await deleteAccount();
+    if (!success) return error || t("profile.error.delete");
+    setUser(null);
+    setItems([]);
+    setDisplayName("");
+    setTypes(undefined);
+    setSharing(false);
+    setEditingTypes(false);
+    setTab("home");
+    setDetail(null);
+    showToast(t("profile.deleted"));
+    return null;
   };
 
   const handleLanguageChange = (locale: Locale) => {
@@ -270,6 +287,7 @@ export function Dashboard() {
           onOpen={setDetail}
           onNameSaved={setDisplayName}
           onSignOut={handleSignOut}
+          onDeleteAccount={handleDeleteAccount}
           onEditTypes={() => setEditingTypes(true)}
           onLanguageChange={handleLanguageChange}
           onToast={showToast}

@@ -7,10 +7,14 @@ const mockUpsert = vi.fn();
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn(() => ({ select: mockSelect, upsert: mockUpsert }));
 const mockRpc = vi.fn();
+const mockList = vi.fn();
+const mockRemove = vi.fn();
+const mockSignOut = vi.fn();
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
-    auth: { getUser: mockGetUser },
+    auth: { getUser: mockGetUser, signOut: mockSignOut },
+    storage: { from: () => ({ list: mockList, remove: mockRemove }) },
     from: mockFrom,
     rpc: mockRpc,
   }),
@@ -25,6 +29,7 @@ import {
   updateDisplayName,
   updateLanguage,
   updateShareEnabled,
+  deleteAccount,
 } from "../api";
 
 describe("Profiles API", () => {
@@ -204,6 +209,80 @@ describe("Profiles API", () => {
     expect(await updateCollectionTypes(["game"])).toEqual({
       success: false,
       error: "Użytkownik nie jest zalogowany",
+    });
+  });
+
+  describe("deleteAccount", () => {
+    beforeEach(() => {
+      mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+      mockList.mockResolvedValue({ data: [], error: null });
+      mockRemove.mockResolvedValue({ data: [], error: null });
+      mockRpc.mockResolvedValue({ error: null });
+      mockSignOut.mockResolvedValue({ error: null });
+    });
+
+    it("removes the user's covers, deletes the account and signs out, in that order", async () => {
+      const order: string[] = [];
+      mockList.mockImplementation(async () => {
+        order.push("list");
+        return { data: [{ name: "a.jpg" }, { name: "b.png" }], error: null };
+      });
+      mockRemove.mockImplementation(async () => {
+        order.push("remove");
+        return { data: [], error: null };
+      });
+      mockRpc.mockImplementation(async () => {
+        order.push("rpc");
+        return { error: null };
+      });
+      mockSignOut.mockImplementation(async () => {
+        order.push("signOut");
+        return { error: null };
+      });
+
+      expect(await deleteAccount()).toEqual({ success: true, error: null });
+      expect(mockList).toHaveBeenCalledWith("u1", expect.objectContaining({ limit: 100 }));
+      expect(mockRemove).toHaveBeenCalledWith(["u1/a.jpg", "u1/b.png"]);
+      expect(mockRpc).toHaveBeenCalledWith("delete_my_account");
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
+      expect(order).toEqual(["list", "remove", "rpc", "signOut"]);
+    });
+
+    it("removes the covers in batches until the folder is empty", async () => {
+      const page = (n: number, from: number) => Array.from({ length: n }, (_, i) => ({ name: `f${from + i}.jpg` }));
+      mockList
+        .mockResolvedValueOnce({ data: page(100, 0), error: null })
+        .mockResolvedValueOnce({ data: page(3, 100), error: null });
+
+      await deleteAccount();
+      expect(mockRemove).toHaveBeenCalledTimes(2);
+      expect(mockRemove.mock.calls[1][0]).toEqual(["u1/f100.jpg", "u1/f101.jpg", "u1/f102.jpg"]);
+    });
+
+    it("keeps the account when the covers cannot be removed, so nothing is orphaned", async () => {
+      mockList.mockResolvedValue({ data: [{ name: "a.jpg" }], error: null });
+      mockRemove.mockResolvedValue({ data: null, error: { message: "storage down" } });
+
+      expect(await deleteAccount()).toEqual({ success: false, error: "storage down" });
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockSignOut).not.toHaveBeenCalled();
+    });
+
+    it("reports a failed deletion without signing out", async () => {
+      mockRpc.mockResolvedValue({ error: { message: "boom" } });
+      expect(await deleteAccount()).toEqual({ success: false, error: "boom" });
+      expect(mockSignOut).not.toHaveBeenCalled();
+    });
+
+    it("fails when nobody is signed in", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+      expect((await deleteAccount()).success).toBe(false);
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
+
+    it("still succeeds when signing out afterwards fails (the account is already gone)", async () => {
+      mockSignOut.mockResolvedValue({ error: { message: "session not found" } });
+      expect(await deleteAccount()).toEqual({ success: true, error: null });
     });
   });
 });
