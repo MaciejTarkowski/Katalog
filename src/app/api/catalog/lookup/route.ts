@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardRequest } from "@/lib/api/guard";
 import { lookupCatalogItem, toClientPayload } from "@/lib/catalog/lookup";
 import { normalizeEan } from "@/lib/catalog/normalize";
 import { requestTranslator } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
+  const denied = await guardRequest(req, "catalog");
+  if (denied) return denied;
   const t = requestTranslator(req);
   try {
     const body = await req.json().catch(() => null);

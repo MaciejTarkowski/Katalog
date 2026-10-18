@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { POST } from "../route";
+
+const mockGuard = vi.fn();
+vi.mock("@/lib/api/guard", () => ({ guardRequest: (...args: unknown[]) => mockGuard(...args) }));
 
 vi.mock("@/lib/catalog/search", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/catalog/search")>()),
@@ -19,7 +22,10 @@ function request(body: unknown) {
 }
 
 describe("POST /api/catalog/search", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGuard.mockResolvedValue(null);
+  });
 
   it("returns client payloads for the found items", async () => {
     mockSearch.mockResolvedValue({ hasMore: true, items: [
@@ -58,6 +64,13 @@ describe("POST /api/catalog/search", () => {
 
   it("rejects an empty query", async () => {
     expect((await POST(request({ query: "  " }))).status).toBe(400);
+    expect(mockSearch).not.toHaveBeenCalled();
+  });
+
+  it("refuses a visitor the guard turns away, without calling the external API", async () => {
+    mockGuard.mockResolvedValue(NextResponse.json({ error: "Zaloguj się" }, { status: 401 }));
+    const res = await POST(request({ query: "Solaris" }));
+    expect(res.status).toBe(401);
     expect(mockSearch).not.toHaveBeenCalled();
   });
 });

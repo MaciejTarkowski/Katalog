@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardRequest } from "@/lib/api/guard";
 import { GeminiUnavailableError, recognizeCover } from "@/lib/recognize/gemini";
 import { mergeRecognition } from "@/lib/recognize/merge";
 import { requestTranslator } from "@/lib/i18n/server";
@@ -6,6 +7,8 @@ import { requestTranslator } from "@/lib/i18n/server";
 const DATA_URL_RE = /^data:(image\/[a-z+.-]+);base64,([A-Za-z0-9+/=]+)$/;
 
 export async function POST(req: NextRequest) {
+  const denied = await guardRequest(req, "recognize");
+  if (denied) return denied;
   const t = requestTranslator(req);
   const body = await req.json().catch(() => null);
   const match = typeof body?.image === "string" ? body.image.match(DATA_URL_RE) : null;

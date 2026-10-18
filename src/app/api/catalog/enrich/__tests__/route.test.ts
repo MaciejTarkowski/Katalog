@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { POST } from "../route";
+
+const mockGuard = vi.fn();
+vi.mock("@/lib/api/guard", () => ({ guardRequest: (...args: unknown[]) => mockGuard(...args) }));
 
 vi.mock("@/lib/catalog/lookup", () => ({ lookupCatalogItem: vi.fn() }));
 
@@ -16,7 +19,10 @@ function request(body: unknown) {
 }
 
 describe("POST /api/catalog/enrich", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGuard.mockResolvedValue(null);
+  });
 
   it("rejects a request without a recognized title", async () => {
     expect((await POST(request({ recognized: { category: "book" } }))).status).toBe(400);
@@ -92,5 +98,12 @@ describe("POST /api/catalog/enrich", () => {
     ).json();
     expect(json.success).toBe(true);
     expect(json.data).toMatchObject({ title: "Gruby Brzuch", artist_creator: "Grubson", category: "music", cover_url: null });
+  });
+
+  it("refuses a visitor the guard turns away, without calling the external API", async () => {
+    mockGuard.mockResolvedValue(NextResponse.json({ error: "Zaloguj się" }, { status: 401 }));
+    const res = await POST(request({ recognized: { title: "Solaris", category: "book" } }));
+    expect(res.status).toBe(401);
+    expect(mockLookup).not.toHaveBeenCalled();
   });
 });

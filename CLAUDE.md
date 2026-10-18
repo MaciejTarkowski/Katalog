@@ -51,6 +51,8 @@ Add-item flow:
 4. `AddItemForm` saves via `lib/items/api.ts`; covers go to the Storage bucket `covers` (`lib/storage/upload.ts`).
 5. Detail view: a missing `metadata.description` is looked up on open via `app/api/catalog/description/route.ts` (Polish Wikipedia, English as fallback; `lib/catalog/providers/wikipedia.ts`) and saved back only when found (none found = retried on the next open).
 
+`app/api/catalog/{recognize,enrich,lookup,search}` require a signed-in user and an hourly quota (`lib/api/guard.ts` → RPC `consume_api_quota`, limits live in the SQL function; table `api_usage`); without the migration they answer 503. `description` stays open (guests on `/share` use it).
+
 The only AI call is Gemini in `lib/recognize/gemini.ts` (REST, no SDK) — always mock `fetch` for it in tests.
 
 Supabase:

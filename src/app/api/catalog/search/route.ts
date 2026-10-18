@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardRequest } from "@/lib/api/guard";
 import { toClientPayload } from "@/lib/catalog/lookup";
 import { SEARCH_CATEGORIES, searchCatalog, type SearchCategory } from "@/lib/catalog/search";
 import { requestTranslator } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
+  const denied = await guardRequest(req, "catalog");
+  if (denied) return denied;
   const t = requestTranslator(req);
   try {
     const body = await req.json().catch(() => null);

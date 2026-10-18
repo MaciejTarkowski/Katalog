@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { POST } from "../route";
+
+const mockGuard = vi.fn();
+vi.mock("@/lib/api/guard", () => ({ guardRequest: (...args: unknown[]) => mockGuard(...args) }));
 
 vi.mock("@/lib/catalog/lookup", () => ({ lookupCatalogItem: vi.fn() }));
 vi.mock("@/lib/recognize/gemini", async (importOriginal) => ({
@@ -23,7 +26,10 @@ function request(body: unknown) {
 }
 
 describe("POST /api/catalog/recognize", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGuard.mockResolvedValue(null);
+  });
 
   it("rejects a request without an image", async () => {
     const res = await POST(request({}));
@@ -69,5 +75,12 @@ describe("POST /api/catalog/recognize", () => {
   it("answers 404 when the cover could not be identified", async () => {
     mockRecognize.mockResolvedValue(null);
     expect((await POST(request({ image: IMAGE }))).status).toBe(404);
+  });
+
+  it("refuses a visitor the guard turns away, without calling the external API", async () => {
+    mockGuard.mockResolvedValue(NextResponse.json({ error: "Zaloguj się" }, { status: 401 }));
+    const res = await POST(request({ image: IMAGE }));
+    expect(res.status).toBe(401);
+    expect(mockRecognize).not.toHaveBeenCalled();
   });
 });

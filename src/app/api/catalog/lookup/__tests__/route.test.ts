@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { POST } from "../route";
+
+const mockGuard = vi.fn();
+vi.mock("@/lib/api/guard", () => ({ guardRequest: (...args: unknown[]) => mockGuard(...args) }));
 
 vi.mock("@/lib/catalog/lookup", () => ({
   lookupCatalogItem: vi.fn(),
@@ -96,5 +99,12 @@ describe("POST /api/catalog/lookup", () => {
     mockLookup.mockResolvedValue(null);
     const res = await POST(request({ query: "unknown" }));
     expect(res.status).toBe(404);
+  });
+
+  it("refuses a visitor the guard turns away, without calling the external API", async () => {
+    mockGuard.mockResolvedValue(NextResponse.json({ error: "Zaloguj się" }, { status: 401 }));
+    const res = await POST(request({ query: "Solaris" }));
+    expect(res.status).toBe(401);
+    expect(mockLookup).not.toHaveBeenCalled();
   });
 });

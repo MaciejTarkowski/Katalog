@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardRequest } from "@/lib/api/guard";
 import { lookupCatalogItem } from "@/lib/catalog/lookup";
 import { isCatalogCategory } from "@/lib/catalog/types";
 import type { RecognizedCover } from "@/lib/recognize/gemini";
@@ -9,6 +10,8 @@ const text = (value: unknown) => (typeof value === "string" && value.trim() ? va
 
 /** Second step of a photo scan: catalog cover and details for what /api/catalog/recognize found. */
 export async function POST(req: NextRequest) {
+  const denied = await guardRequest(req, "catalog");
+  if (denied) return denied;
   const body = await req.json().catch(() => null);
   const raw = body?.recognized;
   const title = text(raw?.title);
