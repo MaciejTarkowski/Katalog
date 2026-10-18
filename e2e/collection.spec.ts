@@ -23,25 +23,15 @@ test.describe("1. Wyświetlanie kolekcji i kategorii/podkategorii", () => {
     await expect(page.getByText("Cudzy element")).toHaveCount(0);
   });
 
-  test("grupuje kolekcję w rzędy kategorii i filtruje chipami", async ({ page }) => {
+  test("grupuje kolekcję w rzędy kategorii, bez chipów filtrujących", async ({ page }) => {
     await mockBackend(page);
     await login(page);
 
     await expect(page.getByRole("region", { name: "Książki" }).getByTestId(/^item-card-/)).toHaveCount(2);
     await expect(page.getByRole("region", { name: "Muzyka" }).getByTestId("item-card-m1")).toBeVisible();
 
-    const tabs = page.getByRole("tablist", { name: "Kategorie" });
-    await tabs.getByRole("tab", { name: "Książki" }).click();
-    await expect(tabs.getByRole("tab", { name: "Książki" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByTestId(/^item-card-/)).toHaveCount(2);
-    await expect(page.getByRole("heading", { name: "Hobbit" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Wiedźmin 3" })).toHaveCount(0);
-
-    await tabs.getByRole("tab", { name: "Gry" }).click();
-    await expect(page.getByTestId(/^item-card-/)).toHaveCount(1);
-
-    await tabs.getByRole("tab", { name: "Wszystkie" }).click();
-    await expect(page.getByTestId(/^item-card-/)).toHaveCount(SEED_ITEMS.length);
+    await expect(page.getByRole("region", { name: "Gry" }).getByTestId("item-card-g1")).toBeVisible();
+    await expect(page.getByRole("tablist", { name: "Kategorie" })).toHaveCount(0);
   });
 
   test("pokazuje kategorię w wyszukiwarce i podkategorię w szczegółach", async ({ page }) => {

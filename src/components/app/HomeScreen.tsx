@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Item } from "@/types/database";
 import { CATEGORIES, OTHER_CATEGORY, addedAgo, categoryDef } from "@/lib/items/display";
-import { Chip, Cover, Icon, Logo, SectionLoader } from "@/components/ui/primitives";
+import { Cover, Icon, Logo, SectionLoader } from "@/components/ui/primitives";
 import { useImagesReady } from "@/lib/image/useImagesReady";
 
 interface HomeScreenProps {
@@ -45,7 +45,6 @@ export function RowCard({ item, onOpen, width = 116 }: { item: Item; onOpen: (it
 }
 
 export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, onAdd }: HomeScreenProps) {
-  const [category, setCategory] = useState("all");
   const [heroIdx, setHeroIdx] = useState(0);
   const heroRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +52,6 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
   const hasOther = items.some((i) => !CATEGORIES.some((c) => c.value === i.category));
   const tabs = hasOther ? [...CATEGORIES, OTHER_CATEGORY] : CATEGORIES;
   const rows = tabs
-    .filter((c) => category === "all" || category === c.value)
     .map((c) => ({
       ...c,
       items: items.filter((i) =>
@@ -68,7 +66,7 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
     .filter((u): u is string => Boolean(u));
   const coversReady = useImagesReady([...new Set(visibleCovers)]);
   const loading = isLoading || !coversReady;
-  const showHero = !loading && category === "all" && hero.length > 0;
+  const showHero = !loading && hero.length > 0;
 
   // Cached instead of read from the DOM inside the scroll handler: `clientWidth` forces a
   // synchronous layout reflow, and reading it on every scroll event (which can fire on nearly
@@ -161,7 +159,7 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
       )}
 
       <div className="relative pt-[max(12px,env(safe-area-inset-top))]">
-        <div className="flex items-center justify-between px-5 pt-2.5">
+        <div className="flex items-center justify-between px-5 pt-2.5 pb-[18px]">
           <Logo size={26} />
           <button
             type="button"
@@ -173,16 +171,6 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
           </button>
         </div>
 
-        <div role="tablist" aria-label="Kategorie" className="flex gap-2 overflow-x-auto scrollbar-none px-5 pt-4 pb-[18px]">
-          <Chip role="tab" active={category === "all"} onClick={() => setCategory("all")}>
-            Wszystkie
-          </Chip>
-          {tabs.map((c) => (
-            <Chip key={c.value} role="tab" active={category === c.value} onClick={() => { setCategory(c.value); setHeroIdx(0); }}>
-              {c.label}
-            </Chip>
-          ))}
-        </div>
 
         {showHero && (
           <>

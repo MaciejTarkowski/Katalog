@@ -101,14 +101,13 @@ describe("Dashboard", () => {
     expect(screen.getByRole("button", { name: "Otwórz profil" })).toHaveTextContent("K");
   });
 
-  it("filters the home rows by category chip", async () => {
+  it("shows every category row on home without filter chips", async () => {
     mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
     render(<Dashboard />);
     await screen.findByRole("region", { name: "Książki" });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Muzyka" }));
-    expect(screen.queryByRole("heading", { name: "Wiedźmin" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Abbey Road" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Muzyka" })).toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: "Kategorie" })).not.toBeInTheDocument();
   });
 
   it("searches the collection ignoring diacritics", async () => {

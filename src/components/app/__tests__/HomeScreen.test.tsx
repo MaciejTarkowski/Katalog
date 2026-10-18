@@ -176,3 +176,16 @@ describe("HomeScreen loading", () => {
     expect(screen.getByTestId("item-card-id-A")).toBeInTheDocument();
   });
 });
+
+describe("HomeScreen category rows", () => {
+  beforeEach(() => __resetLoadedImages());
+
+  it("has no category filter pills and shows a row for every category in the collection", () => {
+    const mixed = [...items, { ...items[0], id: "id-G", title: "Gra G", category: "game" } as Item];
+    render(<HomeScreen items={mixed} userInitial="M" onOpen={vi.fn()} onProfile={vi.fn()} onAdd={vi.fn()} />);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Książki" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Gry" })).toBeInTheDocument();
+  });
+});
