@@ -60,6 +60,8 @@ Supabase:
 - `lib/items/api.ts` runs client-side and returns `{ data, error }` instead of throwing.
 - `supabase/schema.sql` is the source of truth (changes also go to `supabase/migrations/`, run by hand in the SQL Editor): `items` table (`metadata` JSONB) and `profiles` (`display_name`, created on signup by the `handle_new_user` trigger; `collection_types` = categories the user keeps, NULL until chosen on first login → `CollectionTypesPicker`, unchosen categories are only hidden via `filterByTypes`, also on `/share`; `share_enabled`, default false). Both tables are owner-only (RLS) — collections are private. A guest reads a shared collection only through the SECURITY DEFINER functions `shared_profile`, `shared_items`, `shared_item`, which return rows only while `share_enabled` is true (client: `fetchSharedProfile`, `fetchPublicItems`, `fetchItemById(id, { shared: true })`; the toggle is in `ShareScreen`). Account deletion: `deleteAccount` (`lib/profiles/api.ts`) removes the user's cover files, then calls RPC `delete_my_account` (cascades to items/profile/quota), then signs out locally. `covers` bucket: public read, uploads only into the user's own `<userId>/` folder (RLS). `src/types/database.ts` mirrors the schema by hand.
 
+Legal pages: `/privacy` and `/delete-account` are public static pages (texts in `lib/legal/content.ts`, English + Polish, other languages show English; contact `nerdousai@gmail.com`); keep them in sync with what the app really collects/sends.
+
 PWA: `public/manifest.json` + `public/sw.js`, registered by `PwaRegister.tsx` in production only.
 
 ## Environment

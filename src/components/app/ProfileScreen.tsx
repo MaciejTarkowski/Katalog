@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { Item } from "@/types/database";
 import { collectionSummary, compareTitles, initialOf, localizedCategories, type CategoryDef } from "@/lib/items/display";
@@ -128,6 +129,14 @@ export function ProfileScreen({
                 </button>
               ))}
             </div>
+            <Link
+              href="/privacy"
+              role="menuitem"
+              className="w-full flex items-center gap-2.5 h-[46px] px-3 rounded-[11px] text-tx text-[15px] font-semibold hover:bg-white/5"
+            >
+              <Icon name="policy" size={21} />
+              {t("legal.privacy")}
+            </Link>
             <button
               type="button"
               role="menuitem"

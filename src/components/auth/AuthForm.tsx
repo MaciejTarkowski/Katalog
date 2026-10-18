@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/locale";
@@ -231,6 +232,10 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
         >
           {isSignUp ? t("auth.haveAccount") : t("auth.noAccount")}
         </button>
+
+        <Link href="/privacy" className="text-center text-xs text-mu underline underline-offset-2">
+          {t("legal.privacy")}
+        </Link>
       </form>
     </div>
   );

@@ -134,4 +134,12 @@ describe("AuthForm", () => {
     render(<AuthForm initialMode="signup" />);
     expect(screen.queryByRole("button", { name: "Kontynuuj z Apple" })).not.toBeInTheDocument();
   });
+
+  it("links to the privacy policy in both modes", () => {
+    const { unmount } = render(<AuthForm />);
+    expect(screen.getByRole("link", { name: "Polityka prywatności" })).toHaveAttribute("href", "/privacy");
+    unmount();
+    render(<AuthForm initialMode="signup" />);
+    expect(screen.getByRole("link", { name: "Polityka prywatności" })).toHaveAttribute("href", "/privacy");
+  });
 });

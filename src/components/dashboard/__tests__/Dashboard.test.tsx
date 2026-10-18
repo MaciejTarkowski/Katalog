@@ -289,6 +289,15 @@ describe("Dashboard", () => {
     expect(await screen.findByText("Cała Twoja kolekcja. Na jednym ekranie.")).toBeInTheDocument();
   });
 
+  it("links to the privacy policy from the profile menu", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+    fireEvent.click(tab("Profil"));
+    fireEvent.click(screen.getByRole("button", { name: "Więcej opcji" }));
+    expect(screen.getByRole("menuitem", { name: "Polityka prywatności" })).toHaveAttribute("href", "/privacy");
+  });
+
   describe("account deletion", () => {
     const openDeleteSheet = async () => {
       mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
