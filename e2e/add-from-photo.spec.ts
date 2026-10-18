@@ -35,7 +35,7 @@ test.describe("2. Dodanie elementu ze zdjęcia (rozpoznawanie zamockowane)", () 
       title: SCANNED.title,
       artist_creator: SCANNED.artist_creator,
       category: SCANNED.category,
-      subcategory: SCANNED.subcategory,
+      subcategory: "vinyl",
     });
 
     await openTab(page, "Home");

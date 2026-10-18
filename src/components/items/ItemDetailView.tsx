@@ -7,6 +7,7 @@ import { fetchItemById } from "@/lib/items/api";
 import { fetchItemDescription, type ItemDescription } from "@/lib/items/description";
 import { categoryDef, formatDate, pillStyle, tileBackground } from "@/lib/items/display";
 import { useI18n } from "@/lib/i18n/locale";
+import { displayTerm } from "@/lib/items/terms";
 import type { MessageKey, Translate } from "@/lib/i18n/translate";
 import { Cover, Icon } from "@/components/ui/primitives";
 
@@ -38,14 +39,18 @@ const METADATA_LABELS: Record<string, MessageKey> = {
   pages: "meta.pages",
 };
 
+const TRANSLATED_KEYS = new Set(["genre", "format"]);
+
 /** Readable metadata rows: primitives (and string lists) only, no technical ids or source. */
 function metadataRows(metadata: Record<string, unknown>, t: Translate): Array<[string, string]> {
   return Object.entries(metadata || {}).flatMap(([key, value]): Array<[string, string]> => {
     if (key.endsWith("_id") || key === "source" || key.startsWith("description")) return [];
+    // Formats and genres (saved as codes or in a catalog's language) are shown in the UI language.
+    const show = (v: string | number) => (typeof v === "string" && TRANSLATED_KEYS.has(key) ? displayTerm(v, t) : String(v));
     const text = Array.isArray(value)
-      ? value.filter((v) => typeof v === "string" || typeof v === "number").join(", ")
+      ? value.filter((v) => typeof v === "string" || typeof v === "number").map(show).join(", ")
       : typeof value === "string" || typeof value === "number"
-        ? String(value)
+        ? show(value)
         : "";
     if (!text) return [];
     return [[METADATA_LABELS[key] ? t(METADATA_LABELS[key]) : key, text]];
@@ -283,7 +288,7 @@ export function ItemDetailView({
           </span>
           {item.subcategory && (
             <span className="text-[11.5px] font-medium px-2.5 py-[3px] rounded-full bg-s1 text-mu border border-s2">
-              {item.subcategory}
+              {displayTerm(item.subcategory, t)}
             </span>
           )}
         </div>

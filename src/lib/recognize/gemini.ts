@@ -36,7 +36,7 @@ Najpierw w visible_text przepisz dokładnie wszystkie widoczne napisy i ich frag
 bez zgadywania. Dopiero potem rozpoznaj pozycję tak, by pasowała do tych fragmentów.
 Zwróć oficjalny tytuł i twórcę (autor / wykonawca / studio), nie opis zdjęcia.
 category: book, music, game, comic albo other.
-subcategory: dla gier platforma (np. "PS4", "PS5", "Xbox One", "Switch", "PC"), dla muzyki nośnik ("CD", "Winyl", "Kaseta"), inaczej null.
+subcategory: dla gier platforma (np. "PS4", "PS5", "Xbox One", "Switch", "PC"), dla muzyki nośnik jako kod: "cd", "vinyl" albo "cassette"; inaczej null.
 Jeśli tekst jest częściowo zasłonięty, użyj wiedzy o znanych wydaniach.
 cover_box: prostokąt samej okładki na zdjęciu jako ułamki 0–1 całego zdjęcia (x, y = lewy górny róg, w, h = szerokość i wysokość); null, jeśli okładka wypełnia całe zdjęcie.
 Jeśli nie potrafisz rozpoznać konkretnej pozycji, ustaw recognized na false — nie wpisuj "brak" ani opisu zdjęcia.`;

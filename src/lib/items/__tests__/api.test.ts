@@ -202,6 +202,42 @@ describe("Items API", () => {
     expect(result.error).toBeNull();
   });
 
+  it("addItem saves known formats and genres as codes, so they can be shown in any language", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
+    currentQueryResult = { data: [], error: null };
+    mockSingle.mockResolvedValue({ data: { id: "item-3" }, error: null });
+
+    await addItem({
+      title: "Gruby Brzuch",
+      artist_creator: "Grubson",
+      category: "music",
+      subcategory: "Winyl",
+      cover_url: null,
+      metadata: { genre: "Akcja", year: "2012" },
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith([
+      expect.objectContaining({ subcategory: "vinyl", metadata: { genre: "action", year: "2012" } }),
+    ]);
+  });
+
+  it("addItem treats the same format written in another language as a duplicate", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
+    currentQueryResult = { data: [{ title: "Gruby Brzuch", category: "music", subcategory: "Vinyl" }], error: null };
+
+    const result = await addItem({
+      title: "Gruby Brzuch",
+      artist_creator: "Grubson",
+      category: "music",
+      subcategory: "winyl",
+      cover_url: null,
+      metadata: {},
+    });
+
+    expect(result.error).toBe("„Gruby Brzuch” (Winyl) jest już w Twoim katalogu.");
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
   it("updateItemMetadata saves the item's metadata", async () => {
     mockUpdateEq.mockResolvedValue({ error: null });
     const result = await updateItemMetadata("item-1", { year: "1961", description: "Opis." });

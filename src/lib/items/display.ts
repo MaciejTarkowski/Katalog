@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { Item } from "@/types/database";
 import type { Locale } from "@/lib/i18n/config";
 import type { Translate } from "@/lib/i18n/translate";
+import { displayTerm } from "./terms";
 
 type KnownCategory = "book" | "music" | "game" | "comic";
 
@@ -125,7 +126,7 @@ export function compareTitles(a: string, b: string, locale: Locale): number {
 /** "Book · hardcover" */
 export function metaLine(category: string, subcategory: string | null | undefined, t: Translate): string {
   const one = categoryDef(category, t).one;
-  return subcategory ? `${one} · ${subcategory}` : one;
+  return subcategory ? `${one} · ${displayTerm(subcategory, t)}` : one;
 }
 
 export function collectionSummary(items: Pick<Item, "category">[], t: Translate): string {

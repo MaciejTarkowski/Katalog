@@ -11,7 +11,8 @@ test.describe("3. Sugestia kategorii", () => {
 
     await page.getByRole("button", { name: "Dodaj do kolekcji" }).click();
     await expect.poll(() => backend.inserts.length).toBe(1);
-    expect(backend.inserts[0]).toMatchObject({ category: SCANNED.category, subcategory: SCANNED.subcategory });
+    // "Winyl" is saved as a code, shown in the UI language.
+    expect(backend.inserts[0]).toMatchObject({ category: SCANNED.category, subcategory: "vinyl" });
   });
 
   test("po odrzuceniu można uzupełnić dane ręcznie i wybrać inną kategorię", async ({ page }) => {

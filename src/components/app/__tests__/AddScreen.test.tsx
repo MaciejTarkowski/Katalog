@@ -74,7 +74,7 @@ describe("AddScreen", () => {
     pickFile();
 
     expect(await screen.findByRole("heading", { name: "Solaris" })).toBeInTheDocument();
-    expect(screen.getByText("Książka · miękka oprawa")).toBeInTheDocument();
+    expect(screen.getByText("Książka · Miękka oprawa")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Dodaj do kolekcji" }));
     await waitFor(() =>

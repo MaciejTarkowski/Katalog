@@ -60,7 +60,7 @@ async function fromBookData(isbn: string, book: OpenLibraryBookData): Promise<Ca
     title: book.title,
     artist_creator: book.authors?.[0]?.name || null,
     category: comic ? "comic" : "book",
-    subcategory: comic ? "Komiks" : null,
+    subcategory: comic ? "comic" : null,
     cover_url: book.cover?.large || book.cover?.medium || (await isbnCoverUrl(isbn13)),
     metadata: {
       year: yearFromDate(book.publish_date),
@@ -88,7 +88,7 @@ async function fromSearchDoc(
     title: doc.title,
     artist_creator: doc.author_name?.[0] || null,
     category: comic ? "comic" : "book",
-    subcategory: comic ? "Komiks" : null,
+    subcategory: comic ? "comic" : null,
     cover_url: cover,
     metadata: {
       year: yearFromDate(doc.first_publish_year),

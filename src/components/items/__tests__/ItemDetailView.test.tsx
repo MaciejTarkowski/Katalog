@@ -13,6 +13,8 @@ vi.mock("@/lib/items/description", () => ({
 
 import { fetchItemById } from "@/lib/items/api";
 import type { Item } from "@/types/database";
+import { act } from "@testing-library/react";
+import { setLocale } from "@/lib/i18n/locale";
 
 const mockedFetch = fetchItemById as unknown as ReturnType<typeof vi.fn>;
 
@@ -96,6 +98,28 @@ describe("ItemDetailView", () => {
       "href",
       "/share/user-9"
     );
+  });
+
+  it("shows the format and genre in the UI language, whatever language they were saved in", () => {
+    const item = {
+      id: "item-7",
+      user_id: "user-1",
+      title: "Gruby Brzuch",
+      artist_creator: "Grubson",
+      category: "music",
+      subcategory: "Winyl",
+      cover_url: null,
+      metadata: { genre: "action", year: "2012" },
+      created_at: "2026-01-01T12:00:00Z",
+    } as Item;
+    render(<ItemDetailView item={item} />);
+    expect(screen.getByText("Winyl")).toBeInTheDocument();
+    expect(screen.getByText("Akcja")).toBeInTheDocument();
+
+    act(() => setLocale("en"));
+    expect(screen.getByText("Vinyl")).toBeInTheDocument();
+    expect(screen.getByText("Action")).toBeInTheDocument();
+    expect(screen.queryByText("Winyl")).not.toBeInTheDocument();
   });
 
   it("shows an error when the item cannot be loaded", async () => {

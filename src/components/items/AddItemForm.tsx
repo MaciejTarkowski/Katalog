@@ -5,6 +5,7 @@ import { ItemInsert } from "@/types/database";
 import { CoverScanner, ScannedItemData } from "./CoverScanner";
 import { uploadCoverImage } from "@/lib/storage/upload";
 import { useI18n } from "@/lib/i18n/locale";
+import { displayTerm } from "@/lib/items/terms";
 import type { MessageKey } from "@/lib/i18n/translate";
 
 interface AddItemFormProps {
@@ -42,7 +43,7 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
     if (data.title) setTitle(data.title);
     if (data.artist_creator) setArtistCreator(data.artist_creator);
     if (data.category) setCategory(data.category);
-    if (data.subcategory) setSubcategory(data.subcategory);
+    if (data.subcategory) setSubcategory(displayTerm(data.subcategory, t));
     if (data.metadata) setMetadata(data.metadata);
     if (data.cover_url) {
       setCoverUrl(data.cover_url);

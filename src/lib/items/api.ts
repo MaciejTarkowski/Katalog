@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { CommunityItem, Item, ItemInsert } from "@/types/database";
 import { t } from "@/lib/i18n/locale";
+import { canonicalTerm, displayTerm } from "./terms";
 
 export async function fetchItems(category?: string): Promise<{ data: Item[] | null; error: string | null }> {
   try {
@@ -103,8 +104,11 @@ export async function addItem(
     // Same title can legitimately appear more than once under a different subcategory
     // (e.g. a game on PS5 vs PC, a book in hardcover vs paperback) — only an exact match
     // of title + category + subcategory counts as a duplicate.
+    // Known formats/genres are saved as codes ("Winyl" → "vinyl"), so they can be shown in any UI language.
+    const subcategory = canonicalTerm(item.subcategory);
+    const genre = typeof item.metadata?.genre === "string" ? canonicalTerm(item.metadata.genre) : undefined;
     const normalizedTitle = item.title.trim().toLowerCase();
-    const normalizedSubcategory = (item.subcategory || "").trim().toLowerCase();
+    const normalizedSubcategory = (subcategory || "").toLowerCase();
     const { data: existing, error: existingError } = await supabase
       .from("items")
       .select("title, category, subcategory")
@@ -119,17 +123,18 @@ export async function addItem(
       (row) =>
         row.title.trim().toLowerCase() === normalizedTitle &&
         row.category === item.category &&
-        (row.subcategory || "").trim().toLowerCase() === normalizedSubcategory
+        (canonicalTerm(row.subcategory) || "").toLowerCase() === normalizedSubcategory
     );
     if (isDuplicate) {
-      const withSub = normalizedSubcategory ? ` (${item.subcategory!.trim()})` : "";
+      const withSub = subcategory ? ` (${displayTerm(subcategory, t)})` : "";
       return { data: null, error: t("items.duplicate", { title: item.title.trim(), sub: withSub }) };
     }
 
     const itemToInsert = {
       ...item,
+      subcategory,
       user_id: user.id,
-      metadata: item.metadata || {},
+      metadata: genre ? { ...item.metadata, genre } : item.metadata || {},
     };
 
     const { data, error } = await supabase

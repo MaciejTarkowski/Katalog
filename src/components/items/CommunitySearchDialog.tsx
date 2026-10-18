@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { searchCommunityItems } from "@/lib/items/api";
 import type { CommunityItem } from "@/types/database";
 import { categoryDef } from "@/lib/items/display";
+import { displayTerm } from "@/lib/items/terms";
 import { useI18n } from "@/lib/i18n/locale";
 
 interface CommunitySearchDialogProps {
@@ -144,7 +145,7 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
                       )}
                       <p className="text-[10px] text-mu">
                         {categoryDef(item.category, t).one}
-                        {item.subcategory ? ` · ${item.subcategory}` : ""}
+                        {item.subcategory ? ` · ${displayTerm(item.subcategory, t)}` : ""}
                       </p>
                     </div>
                   </button>

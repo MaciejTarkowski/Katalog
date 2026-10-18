@@ -37,6 +37,7 @@ Tests live in `__tests__/` next to the code. Alias `@/` → `src/`.
 - Tailwind v4 (`@tailwindcss/turbopack`). `tesseract.js` and `html5-qrcode` run client-side only.
 - UI text and API errors go through `lib/i18n` (English default, Polish, German): add a key to `messages/en.ts` and the same key to `pl.ts`/`de.ts` (TypeScript and `i18n.test.ts` check completeness; plurals are `{ one, few, many, other }` via `Intl.PluralRules`). New language: code in `config.ts`, a messages file, the `language` CHECK in `supabase/schema.sql`.
 - In components use `useI18n()` and pass `t`/`locale` to display helpers (`lib/items/display.ts`); the global `t()` from `lib/i18n/locale.ts` is only for code outside rendering (errors in API helpers), otherwise hydration breaks. The language is remembered in `localStorage` (restored after hydration by `LocaleSync`) and in `profiles.language`; API routes read the `x-locale` header (`localeHeaders()` / `requestLocale`).
+- Subcategories and genres from catalogs / Gemini / the user: known values are saved as codes (`canonicalTerm` in `addItem`) and shown with `displayTerm` (`lib/items/terms.ts`, messages `term.<code>`); add aliases in every language there. Platforms and free text stay as written.
 - Unit tests start in Polish (`vitest.setup.ts`), e2e too (`mockBackend` option `locale`).
 
 ## Architecture
