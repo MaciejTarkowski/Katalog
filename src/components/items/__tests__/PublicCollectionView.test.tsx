@@ -186,4 +186,32 @@ describe("PublicCollectionView", () => {
 
     Object.defineProperty(HTMLImageElement.prototype, "complete", { configurable: true, get: () => true });
   });
+
+  it("hides the categories the owner does not keep, waiting for the profile first", async () => {
+    const item = (id: string, category: string) => ({
+      id,
+      user_id: "user-public",
+      title: `Tytuł ${id}`,
+      artist_creator: null,
+      category,
+      subcategory: null,
+      cover_url: null,
+      metadata: {},
+      created_at: "2026-01-01T00:00:00Z",
+    });
+    mockFetchPublicItems.mockResolvedValue({ data: [item("b", "book"), item("g", "game")], error: null });
+    let resolveProfile!: (value: unknown) => void;
+    mockFetchProfile.mockReturnValue(new Promise((r) => (resolveProfile = r)));
+
+    render(<PublicCollectionView userId="user-public" />);
+    await waitFor(() => expect(mockFetchPublicItems).toHaveBeenCalled());
+    expect(screen.queryByTestId("item-card-b")).not.toBeInTheDocument();
+
+    await act(async () => resolveProfile({ data: { id: "user-public", display_name: "M", collection_types: ["game"] }, error: null }));
+
+    expect(await screen.findByTestId("item-card-g")).toBeInTheDocument();
+    expect(screen.queryByTestId("item-card-b")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Książki" })).not.toBeInTheDocument();
+    expect(screen.getByText(/1 pozycj/)).toBeInTheDocument();
+  });
 });

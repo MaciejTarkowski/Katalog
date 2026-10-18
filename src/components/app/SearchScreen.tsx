@@ -2,21 +2,23 @@
 
 import { useState } from "react";
 import type { Item } from "@/types/database";
-import { CATEGORIES, categoryDef, matchesQuery, normalizeForSearch, pillStyle, plural } from "@/lib/items/display";
+import { CATEGORIES, categoryDef, type CategoryDef, matchesQuery, normalizeForSearch, pillStyle, plural } from "@/lib/items/display";
 import { Chip, Cover, Icon } from "@/components/ui/primitives";
 
 interface SearchScreenProps {
   items: Item[];
+  /** Categories the user keeps in the catalog. */
+  categories?: CategoryDef[];
   onOpen: (item: Item) => void;
 }
 
-export function SearchScreen({ items, onOpen }: SearchScreenProps) {
+export function SearchScreen({ items, categories = CATEGORIES, onOpen }: SearchScreenProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const nq = normalizeForSearch(query.trim());
   const byQuery = items.filter((i) => matchesQuery(i, nq));
   const results = byQuery.filter((i) => category === "all" || i.category === category);
-  const chips = [{ value: "all", label: "Wszystkie" }, ...CATEGORIES].map((c) => ({
+  const chips = [{ value: "all", label: "Wszystkie" }, ...categories].map((c) => ({
     ...c,
     count: c.value === "all" ? byQuery.length : byQuery.filter((i) => i.category === c.value).length,
   }));

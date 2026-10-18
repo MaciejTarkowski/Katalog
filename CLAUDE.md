@@ -53,7 +53,7 @@ The only AI call is Gemini in `lib/recognize/gemini.ts` (REST, no SDK) — alway
 Supabase:
 - `lib/supabase/client.ts` (browser) / `server.ts` (cookies); both fall back to placeholder credentials.
 - `lib/items/api.ts` runs client-side and returns `{ data, error }` instead of throwing.
-- `supabase/schema.sql` is the source of truth: `items` table (`metadata` JSONB) and `profiles` (`display_name`, created on signup by the `handle_new_user` trigger), both with public read (used by `/share/[userId]`) and owner-only writes, `covers` bucket expecting `<userId>/` folders. `src/types/database.ts` mirrors it by hand.
+- `supabase/schema.sql` is the source of truth: `items` table (`metadata` JSONB) and `profiles` (`display_name`, created on signup by the `handle_new_user` trigger; `collection_types` = categories the user keeps, NULL until chosen on first login → `CollectionTypesPicker`, unchosen categories are only hidden via `filterByTypes`, also on `/share`), both with public read (used by `/share/[userId]`) and owner-only writes, `covers` bucket expecting `<userId>/` folders. `src/types/database.ts` mirrors it by hand.
 
 PWA: `public/manifest.json` + `public/sw.js`, registered by `PwaRegister.tsx` in production only.
 

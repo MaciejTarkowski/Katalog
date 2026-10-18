@@ -29,4 +29,6 @@ export type ItemUpdate = Partial<Omit<Item, "id" | "user_id" | "created_at">>;
 export interface Profile {
   id: string;
   display_name: string | null;
+  /** Item categories the user keeps in the catalog; null = not chosen yet (asked on first login). */
+  collection_types?: string[] | null;
 }

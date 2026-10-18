@@ -32,6 +32,17 @@ export function categoryDef(value: string): CategoryDef {
   return CATEGORIES.find((c) => c.value === value) ?? { ...OTHER_CATEGORY, one: value === "other" ? "Inne" : value };
 }
 
+/** Categories the user keeps in the catalog (all of them until they choose), in the app's order. */
+export function visibleCategories(types: string[] | null | undefined): CategoryDef[] {
+  return types ? CATEGORIES.filter((c) => types.includes(c.value)) : CATEGORIES;
+}
+
+/** Hides items of categories the user no longer keeps; uncategorised ("other") items always stay. */
+export function filterByTypes<T extends Pick<Item, "category">>(items: T[], types: string[] | null | undefined): T[] {
+  if (!types) return items;
+  return items.filter((i) => types.includes(i.category) || !CATEGORIES.some((c) => c.value === i.category));
+}
+
 export function pillStyle(category: string): CSSProperties {
   const c = categoryDef(category);
   return { color: c.color, background: `rgba(${c.rgb},.18)`, borderColor: `rgba(${c.rgb},.3)` };

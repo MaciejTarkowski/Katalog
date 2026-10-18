@@ -97,6 +97,12 @@ CREATE POLICY "Users can delete own covers"
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     display_name TEXT CHECK (char_length(display_name) BETWEEN 1 AND 50),
+    -- Typy pozycji wybrane przy pierwszym logowaniu (NULL = jeszcze nie wybrano).
+    -- Odznaczenie typu tylko ukrywa pozycje — nic nie jest usuwane z items.
+    collection_types TEXT[] CHECK (
+        collection_types IS NULL
+        OR (cardinality(collection_types) > 0 AND collection_types <@ ARRAY['book', 'music', 'game', 'comic'])
+    ),
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );

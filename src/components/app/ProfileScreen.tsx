@@ -2,20 +2,32 @@
 
 import { useState } from "react";
 import type { Item } from "@/types/database";
-import { CATEGORIES, collectionSummary, initialOf } from "@/lib/items/display";
+import { CATEGORIES, collectionSummary, initialOf, type CategoryDef } from "@/lib/items/display";
 import { DISPLAY_NAME_MAX_LENGTH, updateDisplayName } from "@/lib/profiles/api";
 import { Cover, Icon } from "@/components/ui/primitives";
 
 interface ProfileScreenProps {
   name: string;
   items: Item[];
+  /** Categories the user keeps in the catalog. */
+  categories?: CategoryDef[];
   onOpen: (item: Item) => void;
   onNameSaved: (name: string) => void;
   onSignOut: () => void;
+  onEditTypes: () => void;
   onToast: (message: string) => void;
 }
 
-export function ProfileScreen({ name, items, onOpen, onNameSaved, onSignOut, onToast }: ProfileScreenProps) {
+export function ProfileScreen({
+  name,
+  items,
+  categories = CATEGORIES,
+  onOpen,
+  onNameSaved,
+  onSignOut,
+  onEditTypes,
+  onToast,
+}: ProfileScreenProps) {
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
@@ -23,7 +35,7 @@ export function ProfileScreen({ name, items, onOpen, onNameSaved, onSignOut, onT
   const [category, setCategory] = useState("all");
   const [sortNew, setSortNew] = useState(true);
 
-  const stats = [{ value: "all", label: "Wszystko", color: "var(--ac)" }, ...CATEGORIES].map((c) => ({
+  const stats = [{ value: "all", label: "Wszystko", color: "var(--ac)" }, ...categories].map((c) => ({
     ...c,
     count: c.value === "all" ? items.length : items.filter((i) => i.category === c.value).length,
   }));
@@ -63,6 +75,15 @@ export function ProfileScreen({ name, items, onOpen, onNameSaved, onSignOut, onT
         <>
           <div onClick={() => setMenu(false)} className="fixed inset-0 z-20" />
           <div role="menu" className="absolute right-4 top-[60px] z-[21] min-w-[190px] p-1.5 rounded-2xl bg-s1 border border-s2 shadow-[0_20px_40px_-10px_rgba(0,0,0,.7)]">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={onEditTypes}
+              className="w-full flex items-center gap-2.5 h-[46px] px-3 rounded-[11px] text-tx text-[15px] font-semibold hover:bg-white/5"
+            >
+              <Icon name="category" size={21} />
+              Typy w katalogu
+            </button>
             <button
               type="button"
               role="menuitem"
@@ -132,7 +153,7 @@ export function ProfileScreen({ name, items, onOpen, onNameSaved, onSignOut, onT
         <div className="text-[13.5px] text-mu mt-[3px]">{collectionSummary(items)}</div>
       </div>
 
-      <div role="tablist" aria-label="Statystyki kolekcji" className="grid grid-cols-5 mx-3 mt-[22px] border-b border-s2">
+      <div role="tablist" aria-label="Statystyki kolekcji" style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }} className="grid mx-3 mt-[22px] border-b border-s2">
         {stats.map((s) => {
           const on = category === s.value;
           return (

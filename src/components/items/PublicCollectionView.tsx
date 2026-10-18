@@ -7,7 +7,7 @@ import { fetchPublicItems } from "@/lib/items/api";
 import { fetchProfile } from "@/lib/profiles/api";
 import { Chip, Cover, SectionLoader } from "@/components/ui/primitives";
 import { useImagesReady } from "@/lib/image/useImagesReady";
-import { CATEGORIES, OTHER_CATEGORY, collectionSummary, matchesQuery, normalizeForSearch } from "@/lib/items/display";
+import { CATEGORIES, OTHER_CATEGORY, collectionSummary, filterByTypes, visibleCategories, matchesQuery, normalizeForSearch } from "@/lib/items/display";
 
 function RowCard({ item }: { item: Item }) {
   return (
@@ -36,13 +36,15 @@ interface PublicCollectionViewProps {
 }
 
 export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
-  const [items, setItems] = useState<Item[]>([]);
+  const [allItems, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [ownerName, setOwnerName] = useState<string | null>(null);
+  // Categories the owner keeps: undefined until the profile is in, null = all of them.
+  const [ownerTypes, setOwnerTypes] = useState<string[] | null | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,7 +66,9 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
   useEffect(() => {
     let cancelled = false;
     fetchProfile(userId).then(({ data }) => {
-      if (!cancelled) setOwnerName(data?.display_name || null);
+      if (cancelled) return;
+      setOwnerName(data?.display_name || null);
+      setOwnerTypes(data?.collection_types ?? null);
     });
     return () => {
       cancelled = true;
@@ -82,8 +86,11 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
   };
 
   const query = normalizeForSearch(searchQuery.trim());
+  // Categories the owner unchecked are hidden here too (the items stay in the database).
+  const items = filterByTypes(allItems, ownerTypes);
+  const categories = visibleCategories(ownerTypes);
   const hasOther = items.some((i) => !CATEGORIES.some((c) => c.value === i.category));
-  const tabs = hasOther ? [...CATEGORIES, OTHER_CATEGORY] : CATEGORIES;
+  const tabs = hasOther ? [...categories, OTHER_CATEGORY] : categories;
   const rows = tabs
     .filter((c) => selectedCategory === "all" || selectedCategory === c.value)
     .map((c) => ({
@@ -151,7 +158,7 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
         <div role="alert" className="mx-5 mt-6 p-4 rounded-[18px] bg-rose-500/10 border border-rose-500/25 text-rose-400 text-sm text-center">
           {errorMsg}
         </div>
-      ) : loading || !coversReady ? (
+      ) : loading || ownerTypes === undefined || !coversReady ? (
         <SectionLoader className="mt-6" />
       ) : rows.length === 0 ? (
         <div className="mx-5 mt-6 px-5 py-11 rounded-[18px] bg-s1 border border-s2 text-center">

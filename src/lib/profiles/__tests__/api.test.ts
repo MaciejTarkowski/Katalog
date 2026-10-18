@@ -14,7 +14,7 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
-import { ensureProfile, fetchProfile, nameFromMetadata, updateDisplayName } from "../api";
+import { ensureProfile, fetchProfile, nameFromMetadata, updateCollectionTypes, updateDisplayName } from "../api";
 
 describe("Profiles API", () => {
   beforeEach(() => {
@@ -25,7 +25,7 @@ describe("Profiles API", () => {
     mockMaybeSingle.mockResolvedValue({ data: { id: "u1", display_name: "Maciek" }, error: null });
     const result = await fetchProfile("u1");
     expect(mockFrom).toHaveBeenCalledWith("profiles");
-    expect(mockSelect).toHaveBeenCalledWith("id, display_name");
+    expect(mockSelect).toHaveBeenCalledWith("id, display_name, collection_types");
     expect(mockEq).toHaveBeenCalledWith("id", "u1");
     expect(result).toEqual({ data: { id: "u1", display_name: "Maciek" }, error: null });
   });
@@ -118,6 +118,39 @@ describe("Profiles API", () => {
     expect(await ensureProfile("u1", "Jan Kowalski")).toEqual({
       data: { id: "u1", display_name: null },
       error: "boom",
+    });
+  });
+
+  it("ensureProfile keeps the chosen collection types when it fills the name", async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: { id: "u1", display_name: null, collection_types: ["game"] },
+      error: null,
+    });
+    mockUpsert.mockResolvedValue({ error: null });
+    expect(await ensureProfile("u1", "Jan")).toEqual({
+      data: { id: "u1", display_name: "Jan", collection_types: ["game"] },
+      error: null,
+    });
+  });
+
+  it("updateCollectionTypes upserts the chosen types for the current user", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    mockUpsert.mockResolvedValue({ error: null });
+    expect(await updateCollectionTypes(["game", "music"])).toEqual({ success: true, error: null });
+    expect(mockUpsert).toHaveBeenCalledWith({ id: "u1", collection_types: ["game", "music"] });
+  });
+
+  it("updateCollectionTypes requires at least one known type", async () => {
+    expect((await updateCollectionTypes([])).success).toBe(false);
+    expect((await updateCollectionTypes(["vinyl"])).success).toBe(false);
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("updateCollectionTypes requires a logged-in user", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    expect(await updateCollectionTypes(["game"])).toEqual({
+      success: false,
+      error: "Użytkownik nie jest zalogowany",
     });
   });
 });

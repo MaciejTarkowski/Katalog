@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/types/database";
+import { CATEGORIES } from "@/lib/items/display";
 
 export const DISPLAY_NAME_MAX_LENGTH = 50;
 
@@ -10,7 +11,7 @@ export async function fetchProfile(
     const supabase = createClient();
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, display_name")
+      .select("id, display_name, collection_types")
       .eq("id", userId)
       .maybeSingle();
 
@@ -59,7 +60,7 @@ export async function ensureProfile(
       return { data: profile.data, error: error.message };
     }
 
-    return { data: { id: userId, display_name: fallbackName }, error: null };
+    return { data: { ...profile.data, id: userId, display_name: fallbackName }, error: null };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Błąd podczas zapisywania nazwy";
     return { data: profile.data, error: message };
@@ -96,6 +97,40 @@ export async function updateDisplayName(
     return { success: true, error: null };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Błąd podczas zapisywania nazwy";
+    return { success: false, error: message };
+  }
+}
+
+/** Saves which item categories the current user keeps; items of other categories stay in the database. */
+export async function updateCollectionTypes(
+  types: string[]
+): Promise<{ success: boolean; error: string | null }> {
+  if (types.length === 0 || !types.every((t) => CATEGORIES.some((c) => c.value === t))) {
+    return { success: false, error: "Wybierz co najmniej jeden typ." };
+  }
+
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: "Użytkownik nie jest zalogowany" };
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({ id: user.id, collection_types: types });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Błąd podczas zapisywania typów";
     return { success: false, error: message };
   }
 }

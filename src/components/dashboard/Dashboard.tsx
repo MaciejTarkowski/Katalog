@@ -5,8 +5,8 @@ import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { Item } from "@/types/database";
 import { fetchItems, addItem, deleteItem, updateItemMetadata } from "@/lib/items/api";
-import { ensureProfile, nameFromMetadata } from "@/lib/profiles/api";
-import { initialOf } from "@/lib/items/display";
+import { ensureProfile, nameFromMetadata, updateCollectionTypes } from "@/lib/profiles/api";
+import { CATEGORIES, filterByTypes, initialOf, visibleCategories } from "@/lib/items/display";
 import { Welcome } from "@/components/auth/Welcome";
 import { ItemDetailView } from "@/components/items/ItemDetailView";
 import { HomeScreen } from "@/components/app/HomeScreen";
@@ -15,6 +15,7 @@ import { AddScreen, type NewItem } from "@/components/app/AddScreen";
 import { ShareScreen } from "@/components/app/ShareScreen";
 import { ProfileScreen } from "@/components/app/ProfileScreen";
 import { TabBar, type Tab } from "@/components/app/TabBar";
+import { CollectionTypesPicker } from "@/components/app/CollectionTypesPicker";
 import { Toast } from "@/components/ui/primitives";
 
 export function Dashboard() {
@@ -23,6 +24,9 @@ export function Dashboard() {
   const [items, setItems] = useState<Item[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [displayName, setDisplayName] = useState("");
+  // Item categories the user keeps: undefined = unknown (show all), null = not chosen yet (ask).
+  const [types, setTypes] = useState<string[] | null | undefined>(undefined);
+  const [editingTypes, setEditingTypes] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
   const [detail, setDetail] = useState<Item | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -84,7 +88,9 @@ export function Dashboard() {
     if (!userId) return;
     let cancelled = false;
     ensureProfile(userId, metadataName).then(({ data }) => {
-      if (!cancelled) setDisplayName(data?.display_name || "");
+      if (cancelled) return;
+      setDisplayName(data?.display_name || "");
+      setTypes(data?.collection_types);
     });
     return () => {
       cancelled = true;
@@ -100,8 +106,19 @@ export function Dashboard() {
     await supabase.auth.signOut();
     setUser(null);
     setItems([]);
+    setTypes(undefined);
+    setEditingTypes(false);
     setTab("home");
     setDetail(null);
+  };
+
+  /** Returns null on success, or the error message to show the user. */
+  const handleSaveTypes = async (next: string[]): Promise<string | null> => {
+    const { success, error } = await updateCollectionTypes(next);
+    if (!success) return error || "Nie udało się zapisać typów.";
+    setTypes(next);
+    setEditingTypes(false);
+    return null;
   };
 
   /** Returns null on success, or the error message to show the user. */
@@ -155,6 +172,35 @@ export function Dashboard() {
 
   const name = displayName || user.email?.split("@")[0] || "";
 
+  if (types === null || editingTypes) {
+    if (loadingItems) {
+      return (
+        <div className="flex items-center justify-center min-h-dvh">
+          <div className="w-8 h-8 rounded-full border-2 border-ac border-t-transparent animate-spin" />
+        </div>
+      );
+    }
+    const firstChoice = types === null;
+    // First login: preselect what is already in the collection.
+    const initial =
+      types ??
+      CATEGORIES.map((c) => c.value).filter((v) => !firstChoice || items.some((i) => i.category === v));
+    return (
+      <>
+        <CollectionTypesPicker
+          initial={initial}
+          onSave={handleSaveTypes}
+          onCancel={firstChoice ? undefined : () => setEditingTypes(false)}
+        />
+        <Toast message={toast} />
+      </>
+    );
+  }
+
+  // Items of unchosen types stay in the database, they are only hidden.
+  const shownItems = filterByTypes(items, types);
+  const categories = visibleCategories(types);
+
   return (
     <div className="relative w-full max-w-[480px] mx-auto min-h-dvh">
       {detail ? (
@@ -163,13 +209,13 @@ export function Dashboard() {
           item={detail}
           onBack={() => setDetail(null)}
           onDelete={handleDeleteItem}
-          similar={items.filter((i) => i.category === detail.category && i.id !== detail.id)}
+          similar={shownItems.filter((i) => i.category === detail.category && i.id !== detail.id)}
           onOpen={setDetail}
           onItemChange={handleItemChange}
         />
       ) : tab === "home" ? (
         <HomeScreen
-          items={items}
+          items={shownItems}
           isLoading={loadingItems}
           userInitial={initialOf(name) || "K"}
           onOpen={setDetail}
@@ -177,18 +223,20 @@ export function Dashboard() {
           onAdd={() => selectTab("add")}
         />
       ) : tab === "search" ? (
-        <SearchScreen items={items} onOpen={setDetail} />
+        <SearchScreen items={shownItems} categories={categories} onOpen={setDetail} />
       ) : tab === "add" ? (
-        <AddScreen onAdd={handleAddItem} onToast={showToast} />
+        <AddScreen categories={categories} onAdd={handleAddItem} onToast={showToast} />
       ) : tab === "share" ? (
-        <ShareScreen userId={user.id} name={name} items={items} onToast={showToast} />
+        <ShareScreen userId={user.id} name={name} items={shownItems} onToast={showToast} />
       ) : (
         <ProfileScreen
           name={displayName}
-          items={items}
+          items={shownItems}
+          categories={categories}
           onOpen={setDetail}
           onNameSaved={setDisplayName}
           onSignOut={handleSignOut}
+          onEditTypes={() => setEditingTypes(true)}
           onToast={showToast}
         />
       )}

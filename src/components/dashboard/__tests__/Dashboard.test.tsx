@@ -53,12 +53,14 @@ vi.mock("@/lib/items/api", () => ({
 
 const mockEnsureProfile = vi.fn();
 const mockUpdateDisplayName = vi.fn();
+const mockUpdateCollectionTypes = vi.fn();
 
 vi.mock("@/lib/profiles/api", async (importOriginal) => ({
   DISPLAY_NAME_MAX_LENGTH: 50,
   nameFromMetadata: (await importOriginal<typeof import("@/lib/profiles/api")>()).nameFromMetadata,
   ensureProfile: (userId: string, fallbackName: string) => mockEnsureProfile(userId, fallbackName),
   updateDisplayName: (name: string) => mockUpdateDisplayName(name),
+  updateCollectionTypes: (types: string[]) => mockUpdateCollectionTypes(types),
 }));
 
 const USER = { id: "user-test-uuid", email: "kolekcjoner@example.com" };
@@ -244,5 +246,96 @@ describe("Dashboard", () => {
 
     await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
     expect(await screen.findByText("Cała Twoja kolekcja. Na jednym ekranie.")).toBeInTheDocument();
+  });
+
+  describe("collection types", () => {
+    const profile = (collection_types: string[] | null) => ({
+      data: { id: USER.id, display_name: "Maciek", collection_types },
+      error: null,
+    });
+    const picker = () => screen.getByRole("group", { name: "Typy pozycji" });
+
+    it("asks which types to keep on first login, preselecting the ones already in the collection", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+      mockEnsureProfile.mockResolvedValue(profile(null));
+      mockUpdateCollectionTypes.mockResolvedValue({ success: true, error: null });
+      render(<Dashboard />);
+
+      expect(await screen.findByRole("heading", { name: "Co kolekcjonujesz?" })).toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Nawigacja" })).not.toBeInTheDocument();
+      expect(within(picker()).getByRole("button", { name: "Książki" })).toHaveAttribute("aria-pressed", "true");
+      expect(within(picker()).getByRole("button", { name: "Muzyka" })).toHaveAttribute("aria-pressed", "true");
+      expect(within(picker()).getByRole("button", { name: "Gry" })).toHaveAttribute("aria-pressed", "false");
+
+      fireEvent.click(within(picker()).getByRole("button", { name: "Muzyka" }));
+      fireEvent.click(screen.getByRole("button", { name: "Zapisz" }));
+
+      await waitFor(() => expect(mockUpdateCollectionTypes).toHaveBeenCalledWith(["book"]));
+      expect(await screen.findByRole("region", { name: "Książki" })).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Muzyka" })).not.toBeInTheDocument();
+    });
+
+    it("does not ask again once the types are chosen", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+      mockEnsureProfile.mockResolvedValue(profile(["book", "music"]));
+      render(<Dashboard />);
+
+      await screen.findByRole("region", { name: "Książki" });
+      await waitFor(() => expect(mockEnsureProfile).toHaveBeenCalled());
+      expect(screen.queryByRole("heading", { name: "Co kolekcjonujesz?" })).not.toBeInTheDocument();
+    });
+
+    it("hides unchosen types in every screen without deleting them", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+      mockEnsureProfile.mockResolvedValue(profile(["book"]));
+      render(<Dashboard />);
+
+      await screen.findByRole("region", { name: "Książki" });
+      await waitFor(() => expect(screen.queryByRole("region", { name: "Muzyka" })).not.toBeInTheDocument());
+
+      fireEvent.click(tab("Szukaj"));
+      expect(screen.queryByText("Abbey Road")).not.toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: /Muzyka/ })).not.toBeInTheDocument();
+
+      fireEvent.click(tab("Profil"));
+      expect(screen.getByText("Cała kolekcja · 1")).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: /Muzyka/ })).not.toBeInTheDocument();
+      expect(mockDeleteItem).not.toHaveBeenCalled();
+    });
+
+    it("changes the types from the profile and brings hidden items back", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+      mockEnsureProfile.mockResolvedValue(profile(["book"]));
+      mockUpdateCollectionTypes.mockResolvedValue({ success: true, error: null });
+      render(<Dashboard />);
+      await screen.findByRole("region", { name: "Książki" });
+      fireEvent.click(tab("Profil"));
+
+      fireEvent.click(screen.getByRole("button", { name: "Więcej opcji" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Typy w katalogu" }));
+      expect(within(picker()).getByRole("button", { name: "Książki" })).toHaveAttribute("aria-pressed", "true");
+      expect(within(picker()).getByRole("button", { name: "Muzyka" })).toHaveAttribute("aria-pressed", "false");
+
+      fireEvent.click(within(picker()).getByRole("button", { name: "Muzyka" }));
+      fireEvent.click(screen.getByRole("button", { name: "Zapisz" }));
+
+      await waitFor(() => expect(mockUpdateCollectionTypes).toHaveBeenCalledWith(["book", "music"]));
+      expect(await screen.findByText("Cała kolekcja · 2")).toBeInTheDocument();
+    });
+
+    it("goes back to the profile without saving", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+      mockEnsureProfile.mockResolvedValue(profile(["book"]));
+      render(<Dashboard />);
+      await screen.findByRole("region", { name: "Książki" });
+      fireEvent.click(tab("Profil"));
+
+      fireEvent.click(screen.getByRole("button", { name: "Więcej opcji" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Typy w katalogu" }));
+      fireEvent.click(screen.getByRole("button", { name: "Wróć" }));
+
+      expect(screen.getByRole("heading", { name: "Profil" })).toBeInTheDocument();
+      expect(mockUpdateCollectionTypes).not.toHaveBeenCalled();
+    });
   });
 });

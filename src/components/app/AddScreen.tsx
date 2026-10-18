@@ -14,13 +14,15 @@ import {
   type ScannedItemData,
 } from "@/lib/scan/pipeline";
 import { preloadImage } from "@/lib/image/preload";
-import { CATEGORIES, metaLine, pillStyle, plural, tileBackground, initialOf } from "@/lib/items/display";
+import { CATEGORIES, type CategoryDef, metaLine, pillStyle, plural, tileBackground, initialOf } from "@/lib/items/display";
 import { Chip, Cover, Icon, Sheet } from "@/components/ui/primitives";
 import { AddItemForm } from "@/components/items/AddItemForm";
 
 export type NewItem = Omit<ItemInsert, "id" | "user_id" | "created_at" | "updated_at">;
 
 interface AddScreenProps {
+  /** Categories the user keeps in the catalog. */
+  categories?: CategoryDef[];
   /** Resolves to null on success, or the error message to show. */
   onAdd: (item: NewItem) => Promise<string | null>;
   onToast: (message: string) => void;
@@ -260,7 +262,7 @@ function Stage({
 
 const inCategory = (value: string) => (value === "all" ? undefined : value);
 
-export function AddScreen({ onAdd, onToast }: AddScreenProps) {
+export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreenProps) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [label, setLabel] = useState("");
   const [item, setItem] = useState<ScannedItemData | null>(null);
@@ -602,7 +604,7 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
             <Chip role="tab" active={searchCategory === "all"} onClick={() => pickSearchCategory("all")}>
               Wszystkie
             </Chip>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <Chip key={c.value} role="tab" active={searchCategory === c.value} onClick={() => pickSearchCategory(c.value)}>
                 {c.label}
               </Chip>
@@ -668,6 +670,7 @@ export function AddScreen({ onAdd, onToast }: AddScreenProps) {
         <div className="flex-1 overflow-y-auto scrollbar-none px-5 pb-10">
           {dialog === "manual" && (
             <AddItemForm
+              types={categories.map((c) => c.value)}
               onSubmit={async (data) => {
                 const addError = await onAdd(data);
                 if (!addError) {

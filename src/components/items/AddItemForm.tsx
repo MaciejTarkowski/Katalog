@@ -11,6 +11,8 @@ interface AddItemFormProps {
     item: Omit<ItemInsert, "id" | "user_id" | "created_at" | "updated_at">
   ) => Promise<string | null>;
   onCancel?: () => void;
+  /** Categories the user keeps in the catalog; "Inne" is always offered. */
+  types?: string[];
 }
 
 const CATEGORIES = [
@@ -21,10 +23,11 @@ const CATEGORIES = [
   { value: "other", label: "Inne" },
 ];
 
-export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
+export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
+  const categories = CATEGORIES.filter((c) => c.value === "other" || !types || types.includes(c.value));
   const [title, setTitle] = useState("");
   const [artistCreator, setArtistCreator] = useState("");
-  const [category, setCategory] = useState("book");
+  const [category, setCategory] = useState(categories[0].value);
   const [subcategory, setSubcategory] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
   const [metadata, setMetadata] = useState<Record<string, unknown>>({});
@@ -157,7 +160,7 @@ export function AddItemForm({ onSubmit, onCancel }: AddItemFormProps) {
             onChange={(e) => setCategory(e.target.value)}
             className="w-full h-[46px] px-3 rounded-[14px] bg-bg border border-s2 text-tx text-[15px] outline-none focus:border-ac"
           >
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <option key={cat.value} value={cat.value}>
                 {cat.label}
               </option>

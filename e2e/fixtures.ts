@@ -87,7 +87,14 @@ function userBody() {
 }
 
 /** Mockuje Supabase (auth, REST, storage), API lookup i natywny BarcodeDetector. */
-export async function mockBackend(page: Page, seed: MockItem[] = SEED_ITEMS): Promise<Backend> {
+export const ALL_TYPES = ["book", "music", "game", "comic"];
+
+export async function mockBackend(
+  page: Page,
+  seed: MockItem[] = SEED_ITEMS,
+  { collectionTypes = ALL_TYPES }: { collectionTypes?: string[] | null } = {}
+): Promise<Backend> {
+  let storedTypes = collectionTypes;
   const backend: Backend = { items: [...seed], inserts: [], deletes: [], writes: [], lookups: [] };
 
   // Plakietka dev-serwera Next.js zasłania lewe zakładki dolnego paska — w testach ją chowamy.
@@ -142,12 +149,15 @@ export async function mockBackend(page: Page, seed: MockItem[] = SEED_ITEMS): Pr
     const req = route.request();
     if (req.method() === "GET") {
       const id = new URL(req.url()).searchParams.get("id")?.replace(/^eq\./, "");
-      const profile = id === USER_ID ? { id: USER_ID, display_name: USER_DISPLAY_NAME } : null;
+      const profile =
+        id === USER_ID ? { id: USER_ID, display_name: USER_DISPLAY_NAME, collection_types: storedTypes } : null;
       return profile
         ? route.fulfill({ json: profile })
         : route.fulfill({ status: 406, json: { code: "PGRST116", message: "0 rows" } });
     }
     backend.writes.push(req);
+    const body = req.postDataJSON();
+    if (body && "collection_types" in body) storedTypes = body.collection_types;
     return route.fulfill({ status: 201, json: [] });
   });
 

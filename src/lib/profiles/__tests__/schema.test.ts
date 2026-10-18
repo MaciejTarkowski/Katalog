@@ -36,3 +36,20 @@ describe("profiles OAuth migration", () => {
     expect(sql).toMatch(/ON CONFLICT \(id\) DO UPDATE[\s\S]*display_name IS NULL/);
   });
 });
+
+describe("profiles.collection_types", () => {
+  const file = readdirSync(join(SUPABASE, "migrations")).find((f) => f.includes("profiles_collection_types"));
+  const column = /collection_types TEXT\[\][\s\S]*CHECK[\s\S]*'book'[\s\S]*'music'[\s\S]*'game'[\s\S]*'comic'/;
+
+  it("is a nullable text array of known categories in schema.sql (NULL = not chosen yet)", () => {
+    const sql = read("schema.sql");
+    expect(sql).toMatch(column);
+    expect(sql).not.toMatch(/collection_types TEXT\[\][^,\n]*NOT NULL/);
+  });
+
+  it("has a migration adding the same column", () => {
+    expect(file).toBeDefined();
+    expect(read(`migrations/${file}`)).toMatch(/ALTER TABLE public\.profiles[\s\S]*ADD COLUMN IF NOT EXISTS/);
+    expect(read(`migrations/${file}`)).toMatch(column);
+  });
+});

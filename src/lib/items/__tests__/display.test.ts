@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addedAgo, collectionSummary, matchesQuery, metaLine, normalizeForSearch, plural, tileBackground } from "../display";
+import { addedAgo, collectionSummary, filterByTypes, matchesQuery, visibleCategories, metaLine, normalizeForSearch, plural, tileBackground } from "../display";
 
 describe("display helpers", () => {
   it("picks Polish plural forms", () => {
@@ -37,5 +37,22 @@ describe("display helpers", () => {
   it("gives a stable tile gradient per seed", () => {
     expect(tileBackground("abc")).toBe(tileBackground("abc"));
     expect(tileBackground("abc")).toMatch(/^linear-gradient\(155deg, oklch/);
+  });
+});
+
+describe("collection types", () => {
+  const items = ["book", "music", "game", "other"].map((category) => ({ id: category, category }));
+
+  it("shows every category until the user has chosen", () => {
+    expect(visibleCategories(null).map((c) => c.value)).toEqual(["book", "music", "game", "comic"]);
+    expect(filterByTypes(items, null)).toEqual(items);
+  });
+
+  it("keeps only the chosen categories, in the app's order", () => {
+    expect(visibleCategories(["game", "book"]).map((c) => c.value)).toEqual(["book", "game"]);
+  });
+
+  it("hides items of unchosen categories but keeps uncategorised ones", () => {
+    expect(filterByTypes(items, ["game"]).map((i) => i.id)).toEqual(["game", "other"]);
   });
 });
