@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { lookupCatalogItem, toClientPayload } from "../lookup";
+import { mergeRecognition } from "@/lib/recognize/merge";
 
 describe("lookupCatalogItem", () => {
   const originalFetch = global.fetch;
@@ -512,5 +513,44 @@ describe("lookupCatalogItem", () => {
     });
     expect(item?.cover_url).toContain("/kip.jpg");
     expect(item?.title).toBe("Wiedza to potęga");
+  });
+
+  it("finds the Wiedza to potęga cover by its original title and keeps the Polish title after merging", async () => {
+    process.env.IGDB_CLIENT_ID = "id";
+    process.env.IGDB_CLIENT_SECRET = "secret";
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init?: RequestInit) => {
+      const href = String(url);
+      if (href.includes("api.rawg.io")) {
+        const search = new URL(href).searchParams.get("search") ?? "";
+        // RAWG answers an unknown Polish title with some unrelated game.
+        return search === "Knowledge is Power"
+          ? jsonResponse({ results: [{ name: "Knowledge is Power", platforms: [{ platform: { name: "PlayStation 4" } }] }] })
+          : jsonResponse({ results: [{ name: "Wiedźmin 3: Dziki Gon" }] });
+      }
+      if (href.includes("id.twitch.tv")) return jsonResponse({ access_token: "t", expires_in: 3600 });
+      if (href.includes("api.igdb.com"))
+        return String(init?.body).includes("Knowledge is Power")
+          ? jsonResponse([{ name: "Knowledge is Power", cover: { image_id: "kip" } }])
+          : jsonResponse([{ name: "Wiedźmin 3: Dziki Gon", cover: { image_id: "wrong" } }]);
+      return jsonResponse({}, false, 404);
+    });
+
+    const recognized = {
+      title: "Wiedza to potęga",
+      creator: null,
+      category: "game" as const,
+      subcategory: "PS4",
+      originalTitle: "Knowledge is Power",
+    };
+    const item = await lookupCatalogItem({
+      query: recognized.title,
+      title: recognized.title,
+      originalTitle: recognized.originalTitle,
+      platform: recognized.subcategory,
+      category: "game",
+    });
+    const merged = mergeRecognition(recognized, item);
+    expect(merged.title).toBe("Wiedza to potęga");
+    expect(merged.cover_url).toContain("/kip.jpg");
   });
 });
