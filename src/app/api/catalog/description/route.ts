@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
   const data = await findWikipediaDescription(
     {
       title,
+      originalTitle: text(body.originalTitle),
       creator: text(body.creator),
       category: text(body.category) ?? undefined,
     },

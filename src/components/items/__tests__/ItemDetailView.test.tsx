@@ -179,6 +179,35 @@ describe("ItemDetailView", () => {
       });
     });
 
+    it("never shows a description saved for another UI language when nothing is found in the current one", async () => {
+      act(() => setLocale("en"));
+      const item = {
+        ...DIUNA,
+        metadata: { description: "Opis po polsku.", description_url: "https://pl.wikipedia.org/wiki/Diuna", description_lang: "pl" },
+      };
+      render(<ItemDetailView item={item} />);
+
+      await waitFor(() => expect(mockDescription).toHaveBeenCalled());
+      expect(screen.queryByText("Opis po polsku.")).not.toBeInTheDocument();
+      act(() => setLocale("pl"));
+    });
+
+    it("marks an English description shown because the UI language has no article", async () => {
+      mockDescription.mockResolvedValue({ description: "Dune is a novel.", url: "https://en.wikipedia.org/wiki/Dune" });
+      render(<ItemDetailView item={DIUNA} />);
+
+      expect(await screen.findByText("Dune is a novel.")).toBeInTheDocument();
+      expect(screen.getByText(/Nie znaleziono opisu po polsku/)).toBeInTheDocument();
+    });
+
+    it("does not mark a description in the UI language", async () => {
+      mockDescription.mockResolvedValue({ description: "Diuna – powieść.", url: "https://pl.wikipedia.org/wiki/Diuna" });
+      render(<ItemDetailView item={DIUNA} />);
+
+      expect(await screen.findByText("Diuna – powieść.")).toBeInTheDocument();
+      expect(screen.queryByText(/Nie znaleziono opisu/)).not.toBeInTheDocument();
+    });
+
     it("does not save that there is no description, so it is looked up again on the next visit", async () => {
       mockDescription.mockResolvedValue(null);
       const onItemChange = vi.fn();

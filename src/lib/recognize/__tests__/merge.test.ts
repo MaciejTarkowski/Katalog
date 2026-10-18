@@ -40,5 +40,6 @@ describe("mergeRecognition", () => {
     );
     expect(merged.title).toBe("Wiedza to potęga");
     expect(merged.cover_url).toContain("kip.jpg");
+    expect(merged.metadata.original_title).toBe("Knowledge is Power");
   });
 });

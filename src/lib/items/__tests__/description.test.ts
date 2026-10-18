@@ -32,6 +32,14 @@ describe("fetchItemDescription", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ title: "Solaris", creator: "Stanisław Lem", category: "book" });
   });
 
+  it("sends the original title saved with the item", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: null }) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await fetchItemDescription({ ...item, metadata: { original_title: "Solaris (novel)" } });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).originalTitle).toBe("Solaris (novel)");
+  });
+
   it("tells 'no description' (null) apart from a failed lookup (undefined)", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: null }) }) as unknown as typeof fetch;
     expect(await fetchItemDescription(item)).toBeNull();

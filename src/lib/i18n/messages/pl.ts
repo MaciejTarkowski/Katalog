@@ -159,6 +159,7 @@ export const pl: Messages = {
   "detail.deleteLabel": "Usuń {title}",
   "detail.delete": "Usuń",
   "detail.description": "Opis",
+  "detail.descriptionOtherLanguage": "Nie znaleziono opisu po polsku – wyświetlamy angielski.",
   "detail.source": "Źródło: Wikipedia",
   "detail.details": "Szczegóły",
   "detail.added": "Dodano: {date}",

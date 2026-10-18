@@ -44,7 +44,7 @@ const TRANSLATED_KEYS = new Set(["genre", "format"]);
 /** Readable metadata rows: primitives (and string lists) only, no technical ids or source. */
 function metadataRows(metadata: Record<string, unknown>, t: Translate): Array<[string, string]> {
   return Object.entries(metadata || {}).flatMap(([key, value]): Array<[string, string]> => {
-    if (key.endsWith("_id") || key === "source" || key.startsWith("description")) return [];
+    if (key.endsWith("_id") || key === "source" || key === "original_title" || key.startsWith("description")) return [];
     // Formats and genres (saved as codes or in a catalog's language) are shown in the UI language.
     const show = (v: string | number) => (typeof v === "string" && TRANSLATED_KEYS.has(key) ? displayTerm(v, t) : String(v));
     const text = Array.isArray(value)
@@ -212,9 +212,13 @@ export function ItemDetailView({
   }, [item, descriptionCurrent, locale]);
 
   const found = lookedUp && lookedUp.id === item?.id ? lookedUp.found : null;
-  const description = found?.description || savedDescription || "";
+  // A description saved while another UI language was selected is never shown: it is looked up again in this one.
+  const description = found?.description || (descriptionCurrent ? savedDescription : "") || "";
   const descriptionUrl =
     found?.url || (typeof item?.metadata?.description_url === "string" ? item.metadata.description_url : "");
+  // The article language is the Wikipedia host's: English when the UI language has no article ("en.wikipedia.org").
+  const descriptionLang = descriptionUrl.match(/^https?:\/\/([a-z-]+)\.wikipedia\.org\//)?.[1];
+  const otherLanguage = Boolean(description) && descriptionLang !== undefined && descriptionLang !== locale;
 
   useEffect(() => {
     if (givenItem || !itemId) return;
@@ -314,6 +318,7 @@ export function ItemDetailView({
           <section className="mb-7" style={{ animation: "kToastIn .5s both" }}>
             <h2 className="text-lg font-bold tracking-[-.02em] mb-2.5">{t("detail.description")}</h2>
             <p className="text-[14.5px] leading-[1.55] text-tx/90 whitespace-pre-line">{description}</p>
+            {otherLanguage && <p className="mt-1.5 text-xs text-mu">{t("detail.descriptionOtherLanguage")}</p>}
             {descriptionUrl && (
               <a
                 href={descriptionUrl}

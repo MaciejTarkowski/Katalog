@@ -21,14 +21,20 @@ describe("POST /api/catalog/description", () => {
   it("returns the description found for the item", async () => {
     mockFind.mockResolvedValue({ description: "Opis.", url: "https://pl.wikipedia.org/wiki/Solaris" });
     const json = await (await POST(request({ title: "Solaris", creator: "Stanisław Lem", category: "book" }))).json();
-    expect(mockFind).toHaveBeenCalledWith({ title: "Solaris", creator: "Stanisław Lem", category: "book" }, "en");
+    expect(mockFind).toHaveBeenCalledWith({ title: "Solaris", originalTitle: null, creator: "Stanisław Lem", category: "book" }, "en");
     expect(json).toEqual({ success: true, data: { description: "Opis.", url: "https://pl.wikipedia.org/wiki/Solaris" } });
   });
 
   it("looks the description up in the UI language sent by the client", async () => {
     mockFind.mockResolvedValue(null);
+    await POST(request({ title: "Wiedza to potęga", originalTitle: "Knowledge is Power", category: "game" }, { "x-locale": "en" }));
+    expect(mockFind).toHaveBeenLastCalledWith(
+      { title: "Wiedza to potęga", originalTitle: "Knowledge is Power", creator: null, category: "game" },
+      "en"
+    );
+
     await POST(request({ title: "Solaris", category: "book" }, { "x-locale": "pl" }));
-    expect(mockFind).toHaveBeenCalledWith({ title: "Solaris", creator: null, category: "book" }, "pl");
+    expect(mockFind).toHaveBeenCalledWith({ title: "Solaris", originalTitle: null, creator: null, category: "book" }, "pl");
   });
 
   it("answers in the UI language when the title is missing", async () => {

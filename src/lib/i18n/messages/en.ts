@@ -161,6 +161,7 @@ export const en = {
   "detail.deleteLabel": "Delete {title}",
   "detail.delete": "Delete",
   "detail.description": "Description",
+  "detail.descriptionOtherLanguage": "No description found in your language – showing the English one.",
   "detail.source": "Source: Wikipedia",
   "detail.details": "Details",
   "detail.added": "Added: {date}",

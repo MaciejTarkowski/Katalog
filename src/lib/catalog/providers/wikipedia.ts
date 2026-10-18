@@ -4,6 +4,8 @@ import type { Locale } from "@/lib/i18n/config";
 
 export interface DescriptionQuery {
   title: string;
+  /** International title, tried when the title as saved (e.g. Polish) has no article in that Wikipedia. */
+  originalTitle?: string | null;
   creator?: string | null;
   category?: string;
 }
@@ -96,9 +98,12 @@ export async function findWikipediaDescription(
   locale: Locale
 ): Promise<WikipediaDescription | null> {
   try {
+    const titles = [query.title, query.originalTitle].filter((t): t is string => Boolean(t?.trim()));
     for (const { host, kinds } of wikisFor(locale)) {
-      const found = await searchWiki(host, kinds, query);
-      if (found) return found;
+      for (const title of new Set(titles)) {
+        const found = await searchWiki(host, kinds, { ...query, title });
+        if (found) return found;
+      }
     }
     return null;
   } catch {

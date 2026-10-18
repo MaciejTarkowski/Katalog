@@ -27,6 +27,7 @@ export function mergeRecognition(recognized: RecognizedCover, item: CatalogItem 
       ...(recognized.subcategory && recognized.category === "game"
         ? { platform: recognized.subcategory }
         : {}),
+      ...(recognized.originalTitle ? { original_title: recognized.originalTitle } : {}),
       source: match ? `gemini+${match.source}` : "gemini",
     },
   };

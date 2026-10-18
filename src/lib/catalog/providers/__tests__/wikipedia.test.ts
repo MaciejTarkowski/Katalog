@@ -137,4 +137,21 @@ describe("findWikipediaDescription", () => {
     fetchMock.mockRejectedValue(new Error("offline"));
     expect(await findWikipediaDescription({ title: "Solaris", creator: "Stanisław Lem", category: "book" }, "pl")).toBeNull();
   });
+
+  it("looks the original title up too, e.g. a Polish game that only has an English article", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      const search = new URL(String(url)).searchParams.get("gsrsearch");
+      const list: Page[] =
+        search === "Knowledge is Power"
+          ? [{ title: "Knowledge is Power", index: 1, extract: "Knowledge is Power is a party video game for PlayStation 4." }]
+          : [];
+      return { ok: true, status: 200, json: async () => ({ query: { pages: list } }) };
+    });
+
+    const result = await findWikipediaDescription(
+      { title: "Wiedza to potęga", originalTitle: "Knowledge is Power", category: "game" },
+      "en"
+    );
+    expect(result?.url).toBe("https://en.wikipedia.org/wiki/Knowledge_is_Power");
+  });
 });

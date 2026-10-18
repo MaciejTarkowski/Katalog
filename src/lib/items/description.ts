@@ -15,7 +15,12 @@ export async function fetchItemDescription(item: Item): Promise<ItemDescription 
     const res = await fetch("/api/catalog/description", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...localeHeaders() },
-      body: JSON.stringify({ title: item.title, creator: item.artist_creator, category: item.category }),
+      body: JSON.stringify({
+        title: item.title,
+        originalTitle: typeof item.metadata?.original_title === "string" ? item.metadata.original_title : undefined,
+        creator: item.artist_creator,
+        category: item.category,
+      }),
     });
     const json = await res.json();
     if (!res.ok || !json.success) return undefined;
