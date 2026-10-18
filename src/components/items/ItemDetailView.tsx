@@ -223,7 +223,7 @@ export function ItemDetailView({
   useEffect(() => {
     if (givenItem || !itemId) return;
     let cancelled = false;
-    fetchItemById(itemId).then(({ data, error }) => {
+    fetchItemById(itemId, { shared: Boolean(fromShare) }).then(({ data, error }) => {
       if (cancelled) return;
       setFetched(data);
       setErrorMsg(error);
@@ -231,7 +231,7 @@ export function ItemDetailView({
     return () => {
       cancelled = true;
     };
-  }, [itemId, givenItem]);
+  }, [itemId, givenItem, fromShare]);
 
   useEffect(() => {
     if (!item) return;

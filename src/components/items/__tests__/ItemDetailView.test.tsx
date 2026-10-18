@@ -62,7 +62,7 @@ describe("ItemDetailView", () => {
     render(<ItemDetailView itemId="item-1" />);
 
     expect(await screen.findByRole("heading", { name: "Hobbit" })).toBeInTheDocument();
-    expect(mockedFetch).toHaveBeenCalledWith("item-1");
+    expect(mockedFetch).toHaveBeenCalledWith("item-1", { shared: false });
     expect(screen.getByText("J.R.R. Tolkien")).toBeInTheDocument();
     expect(screen.getByText("Książka")).toBeInTheDocument();
     expect(screen.getByText("Fantasy")).toBeInTheDocument();
@@ -98,6 +98,8 @@ describe("ItemDetailView", () => {
       "href",
       "/share/user-9"
     );
+    // A guest reads the item through the shared-collection RPC, not the (private) table.
+    expect(mockedFetch).toHaveBeenCalledWith("item-1", { shared: true });
   });
 
   it("shows the format and genre in the UI language, whatever language they were saved in", () => {

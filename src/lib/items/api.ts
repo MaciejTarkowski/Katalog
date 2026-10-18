@@ -63,12 +63,19 @@ export async function fetchPublicItems(
   }
 }
 
+/**
+ * One item. Your own collection is read from the table; with `shared` (a guest opening an item from a
+ * /share link) through the RPC `shared_item`, which answers only while the owner shares the collection.
+ */
 export async function fetchItemById(
-  id: string
+  id: string,
+  { shared = false }: { shared?: boolean } = {}
 ): Promise<{ data: Item | null; error: string | null }> {
   try {
     const supabase = createClient();
-    const { data, error } = await supabase.from("items").select("*").eq("id", id).maybeSingle();
+    const { data, error } = shared
+      ? await supabase.rpc("shared_item", { p_id: id }).maybeSingle()
+      : await supabase.from("items").select("*").eq("id", id).maybeSingle();
 
     if (error) {
       return { data: null, error: error.message };

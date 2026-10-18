@@ -49,7 +49,22 @@ AS $$
     ORDER BY i.created_at DESC;
 $$;
 
+CREATE OR REPLACE FUNCTION public.shared_item(p_id UUID)
+RETURNS SETOF public.items
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT i.*
+    FROM public.items i
+    WHERE i.id = p_id
+      AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = i.user_id AND p.share_enabled);
+$$;
+
 REVOKE ALL ON FUNCTION public.shared_profile(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.shared_items(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.shared_item(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.shared_profile(UUID) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.shared_items(UUID) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shared_item(UUID) TO anon, authenticated;

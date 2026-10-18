@@ -279,6 +279,14 @@ describe("Items API", () => {
     expect(result).toEqual({ data: { id: "1", title: "Solaris", category: "book" }, error: null });
   });
 
+  it("fetchItemById reads a guest's item through the shared_item RPC only", async () => {
+    currentQueryResult = { data: { id: "1", title: "Solaris", category: "book" }, error: null };
+    const result = await fetchItemById("1", { shared: true });
+    expect(mockRpc).toHaveBeenCalledWith("shared_item", { p_id: "1" });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(result.data).toEqual({ id: "1", title: "Solaris", category: "book" });
+  });
+
   it("fetchItemById reports a missing item", async () => {
     currentQueryResult = { data: null, error: null };
     const result = await fetchItemById("missing");
