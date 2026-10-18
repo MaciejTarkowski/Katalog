@@ -11,7 +11,7 @@ import { CATEGORIES, OTHER_CATEGORY, collectionSummary, matchesQuery, normalizeF
 
 function RowCard({ item }: { item: Item }) {
   return (
-    <article className="flex-none w-[116px] flex flex-col gap-[7px] snap-start">
+    <article data-testid={`item-card-${item.id}`} className="flex-none w-[116px] flex flex-col gap-[7px] snap-start">
       <Link href={`/item/${item.id}?from=share`} aria-label={item.title} className="block">
         <Cover
           title={item.title}

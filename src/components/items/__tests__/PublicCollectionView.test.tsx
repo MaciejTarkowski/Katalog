@@ -53,6 +53,7 @@ describe("PublicCollectionView", () => {
       "href",
       "/item/item-1?from=share"
     );
+    expect(screen.getByTestId("item-card-item-1")).toBeInTheDocument();
   });
 
   it("uses the app's theme tokens instead of the legacy slate/blue palette", async () => {
