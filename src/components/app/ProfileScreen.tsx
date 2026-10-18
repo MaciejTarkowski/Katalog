@@ -146,18 +146,6 @@ export function ProfileScreen({
               <Icon name="logout" size={21} />
               {t("profile.signOut")}
             </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenu(false);
-                setConfirmDelete(true);
-              }}
-              className="w-full flex items-center gap-2.5 h-[46px] px-3 rounded-[11px] text-rose-400 text-[15px] font-semibold hover:bg-rose-400/10"
-            >
-              <Icon name="delete_forever" size={21} />
-              {t("profile.deleteAccount")}
-            </button>
           </div>
         </>
       )}
@@ -288,6 +276,16 @@ export function ProfileScreen({
             <Cover title={it.title} seed={it.id} src={it.cover_url} letterSize={38} showTitle className="aspect-[2/3]" />
           </button>
         ))}
+      </div>
+
+      <div className="flex justify-center pt-10">
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          className="h-11 px-4 text-[13px] font-medium text-mu underline underline-offset-2"
+        >
+          {t("profile.deleteAccount")}
+        </button>
       </div>
     </div>
   );

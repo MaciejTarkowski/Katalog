@@ -322,10 +322,18 @@ describe("Dashboard", () => {
       render(<Dashboard />);
       await screen.findByRole("region", { name: "Książki" });
       fireEvent.click(tab("Profil"));
-      fireEvent.click(screen.getByRole("button", { name: "Więcej opcji" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: "Usuń konto" }));
+      fireEvent.click(screen.getByRole("button", { name: "Usuń konto" }));
       return screen.findByRole("dialog", { name: "Usunąć konto?" });
     };
+
+    it("keeps account deletion out of the profile menu", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+      render(<Dashboard />);
+      await screen.findByRole("region", { name: "Książki" });
+      fireEvent.click(tab("Profil"));
+      fireEvent.click(screen.getByRole("button", { name: "Więcej opcji" }));
+      expect(screen.queryByRole("menuitem", { name: "Usuń konto" })).not.toBeInTheDocument();
+    });
 
     it("asks for confirmation and does nothing when cancelled", async () => {
       const dialog = await openDeleteSheet();

@@ -96,6 +96,12 @@ export const PRIVACY: Texts = {
         heading: "Changes",
         paragraphs: ["If we change this policy, we will update the date above. Material changes will be announced in the app."],
       },
+      {
+        heading: "Deleting your account",
+        paragraphs: [
+          "You can delete your account and all your data at any time: sign in, open the Profile tab and choose “Delete account” at the bottom of the screen. See the “Delete your account” page for details.",
+        ],
+      },
     ],
   },
   pl: {
@@ -171,6 +177,12 @@ export const PRIVACY: Texts = {
         heading: "Zmiany",
         paragraphs: ["Gdy zmienimy tę politykę, zaktualizujemy datę powyżej. O istotnych zmianach poinformujemy w aplikacji."],
       },
+      {
+        heading: "Usuwanie konta",
+        paragraphs: [
+          "Konto i wszystkie dane możesz usunąć w każdej chwili: zaloguj się, otwórz zakładkę Profil i wybierz „Usuń konto” na dole ekranu. Szczegóły znajdziesz na stronie „Usuń konto”.",
+        ],
+      },
     ],
   },
 };
@@ -184,7 +196,7 @@ export const DELETE_ACCOUNT: Texts = {
         heading: "In the app (instant)",
         items: [
           "Sign in to Katalog.",
-          "Open the Profile tab and tap the ⋯ button in the top right corner.",
+          "Open the Profile tab and scroll to the bottom.",
           "Choose “Delete account” and confirm with “Delete permanently”.",
         ],
         paragraphs: ["Your account is deleted immediately."],
@@ -218,7 +230,7 @@ export const DELETE_ACCOUNT: Texts = {
         heading: "W aplikacji (natychmiast)",
         items: [
           "Zaloguj się do Katalogu.",
-          "Otwórz zakładkę Profil i dotknij przycisku ⋯ w prawym górnym rogu.",
+          "Otwórz zakładkę Profil i przewiń na sam dół.",
           "Wybierz „Usuń konto” i potwierdź przyciskiem „Usuń na stałe”.",
         ],
         paragraphs: ["Konto zostaje usunięte od razu."],

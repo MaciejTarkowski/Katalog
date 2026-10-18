@@ -32,6 +32,13 @@ describe("legal content", () => {
     }
   });
 
+  it("ends the privacy policy with a section about deleting the account", () => {
+    for (const locale of ["en", "pl"] as const) {
+      const sections = legalText(PRIVACY, locale).sections;
+      expect(JSON.stringify(sections[sections.length - 1])).toMatch(locale === "pl" ? /Usuń konto/ : /Delete account/);
+    }
+  });
+
   it("says how to delete the account in the app, matching the real menu path", () => {
     expect(allText(DELETE_ACCOUNT, "pl")).toContain("Usuń konto");
     expect(allText(DELETE_ACCOUNT, "en")).toContain("Delete account");
