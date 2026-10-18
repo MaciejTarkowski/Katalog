@@ -11,6 +11,7 @@ import {
   searchMusicBrainz,
 } from "./providers/musicBrainz";
 import { lookupOpenLibraryByIsbn, searchOpenLibrary } from "./providers/openLibrary";
+import { searchIgdbGame } from "./providers/igdb";
 import { searchRawg } from "./providers/rawg";
 import { isCatalogCategory, type CatalogItem, type LookupInput } from "./types";
 
@@ -71,10 +72,51 @@ async function lookupByEan(ean: string, categoryHint?: string): Promise<CatalogI
   return pickBest(await settled(tasks), categoryHint);
 }
 
+/**
+ * Title names to try for a game, in order: the original title (catalogs know games by it, not by the Polish
+ * one), as on the cover, the title without a subtitle.
+ */
+function gameTitles(title: string, originalTitle?: string | null): string[] {
+  const names = [originalTitle ?? "", title, title.split(/\s*[:–—-]\s+/)[0]]
+    .map((name) => cleanSearchQuery(name))
+    .filter(Boolean);
+  return [...new Set(names)];
+}
+
+/** RAWG + IGDB search by the original title first, then by the title on the cover when that finds no cover. */
+async function searchGame(
+  title: string,
+  known?: Pick<LookupInput, "originalTitle" | "platform">
+): Promise<CatalogItem | null> {
+  let best: CatalogItem | null = null;
+  const names = gameTitles(title, known?.originalTitle);
+  for (const name of names) {
+    const item = await searchRawg(name, known?.platform);
+    if (item?.cover_url) return item;
+    best ??= item;
+  }
+
+  // RAWG may not know the game at all (or only under another name): ask IGDB directly, which also knows local titles.
+  for (const name of names) {
+    const hit = await searchIgdbGame(name, known?.platform);
+    if (!hit) continue;
+    return {
+      title: hit.title,
+      artist_creator: null,
+      category: "game",
+      subcategory: known?.platform ?? null,
+      cover_url: hit.coverUrl,
+      metadata: { year: hit.year, platform: known?.platform ?? undefined, source: "igdb" },
+      source: "igdb",
+    };
+  }
+  return best;
+}
+
 async function lookupByQuery(
   query: string,
   categoryHint?: string,
-  known?: Pick<LookupInput, "title" | "creator">
+  known?: Pick<LookupInput, "title" | "creator" | "originalTitle" | "platform">
 ): Promise<CatalogItem | null> {
   const q = cleanSearchQuery(query);
   if (!q) return null;
@@ -88,7 +130,7 @@ async function lookupByQuery(
     return pickBest(await settled([searchMusicBrainz(q, known), searchDiscogs(q)]), categoryHint, q);
   }
   if (categoryHint === "game") {
-    return searchRawg(gameQuery);
+    return searchGame(gameQuery, known);
   }
 
   return pickBest(
@@ -96,7 +138,7 @@ async function lookupByQuery(
       searchOpenLibrary(q),
       searchMusicBrainz(q, known),
       searchDiscogs(q),
-      searchRawg(gameQuery),
+      searchGame(gameQuery, known),
     ]),
     categoryHint,
     q
@@ -119,7 +161,12 @@ export async function lookupCatalogItem(input: LookupInput): Promise<CatalogItem
       const fromText = await lookupByEan(extracted, categoryHint);
       if (fromText) return fromText;
     }
-    return lookupByQuery(query, categoryHint, { title: input.title, creator: input.creator });
+    return lookupByQuery(query, categoryHint, {
+      title: input.title,
+      creator: input.creator,
+      originalTitle: input.originalTitle,
+      platform: input.platform,
+    });
   }
 
   return null;

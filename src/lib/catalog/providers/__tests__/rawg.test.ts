@@ -58,4 +58,50 @@ describe("RAWG + IGDB covers", () => {
     const item = await searchRawg("1-2 Switch");
     expect(item?.cover_url).toBeNull();
   });
+
+  it("never takes another game's cover when IGDB has no game with that title (A Way Out)", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
+      const href = String(url);
+      if (href.includes("api.rawg.io")) return json({ results: [{ name: "A Way Out", platforms: [] }] });
+      if (href.includes("id.twitch.tv")) return json({ access_token: "tok", expires_in: 3600 });
+      if (href.includes("api.igdb.com")) return json([{ name: "Way of the Samurai", cover: { image_id: "wrong" } }]);
+      return json({}, false, 404);
+    });
+    const item = await searchRawg("A Way Out", "PS4");
+    expect(item?.cover_url).toBeNull();
+  });
+
+  it("prefers the release on the scanned platform", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
+      const href = String(url);
+      if (href.includes("api.rawg.io"))
+        return json({
+          results: [
+            { name: "Diablo III", platforms: [{ platform: { name: "PC" } }] },
+            { name: "Diablo III", platforms: [{ platform: { name: "PlayStation 3" } }] },
+          ],
+        });
+      if (href.includes("id.twitch.tv")) return json({ access_token: "tok", expires_in: 3600 });
+      if (href.includes("api.igdb.com"))
+        return json([
+          { name: "Diablo III", cover: { image_id: "pc" }, platforms: [{ abbreviation: "PC" }] },
+          { name: "Diablo III", cover: { image_id: "ps3" }, platforms: [{ abbreviation: "PS3" }] },
+        ]);
+      return json({}, false, 404);
+    });
+    const item = await searchRawg("Diablo III", "PS3");
+    expect(item?.subcategory).toBe("PlayStation 3");
+    expect(item?.cover_url).toContain("/ps3.jpg");
+  });
+
+  it("returns null instead of another game when no RAWG result matches the title", async () => {
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
+      const href = String(url);
+      if (href.includes("api.rawg.io")) return json({ results: [{ name: "Wiedźmin 3: Dziki Gon", platforms: [] }] });
+      if (href.includes("id.twitch.tv")) return json({ access_token: "tok", expires_in: 3600 });
+      if (href.includes("api.igdb.com")) return json([{ name: "Wiedźmin 3: Dziki Gon", cover: { image_id: "wrong" } }]);
+      return json({}, false, 404);
+    });
+    expect(await searchRawg("Wiedza to potęga", "PS4")).toBeNull();
+  });
 });

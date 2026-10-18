@@ -142,6 +142,15 @@ describe("recognizeCover", () => {
 describe("parseGeminiResponse", () => {
   const wrap = (text: string) => ({ candidates: [{ content: { parts: [{ text }] } }] });
 
+  it("keeps the original title only when it differs from the cover title", () => {
+    const parse = (payload: object) =>
+      parseGeminiResponse(wrap(JSON.stringify({ recognized: true, category: "game", ...payload })));
+    expect(parse({ title: "Wiedza to potęga", original_title: "Knowledge is Power" })?.originalTitle).toBe(
+      "Knowledge is Power"
+    );
+    expect(parse({ title: "A Way Out", original_title: "A Way Out" })).not.toHaveProperty("originalTitle");
+  });
+
   it("returns null for invalid JSON or a missing title", () => {
     expect(parseGeminiResponse(wrap("not json"))).toBeNull();
     expect(parseGeminiResponse(wrap(JSON.stringify({ title: " ", category: "book" })))).toBeNull();

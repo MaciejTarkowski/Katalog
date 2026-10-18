@@ -7,6 +7,8 @@ export interface RecognizedCover {
   category: CatalogCategory;
   /** e.g. "PS4", "Winyl", "CD" */
   subcategory: string | null;
+  /** International / original title when the cover shows a localized one (e.g. Polish), else null. */
+  originalTitle?: string | null;
   /** Where the cover sits in the photo (fractions of the image); omitted when it fills the frame. */
   box?: CropBox;
 }
@@ -36,6 +38,7 @@ Najpierw w visible_text przepisz dokładnie wszystkie widoczne napisy i ich frag
 bez zgadywania. Dopiero potem rozpoznaj pozycję tak, by pasowała do tych fragmentów.
 Zwróć oficjalny tytuł i twórcę (autor / wykonawca / studio), nie opis zdjęcia.
 category: book, music, game, comic albo other.
+original_title: oryginalny (międzynarodowy, zwykle angielski) tytuł, gdy okładka ma tytuł zlokalizowany (np. "Wiedza to potęga" = "Knowledge is Power"); null, gdy tytuł jest już oryginalny.
 subcategory: dla gier platforma (np. "PS4", "PS5", "Xbox One", "Switch", "PC"), dla muzyki nośnik jako kod: "cd", "vinyl" albo "cassette"; inaczej null.
 Jeśli tekst jest częściowo zasłonięty, użyj wiedzy o znanych wydaniach.
 cover_box: prostokąt samej okładki na zdjęciu jako ułamki 0–1 całego zdjęcia (x, y = lewy górny róg, w, h = szerokość i wysokość); null, jeśli okładka wypełnia całe zdjęcie.
@@ -48,6 +51,7 @@ const RESPONSE_SCHEMA = {
     recognized: { type: "BOOLEAN" },
     title: { type: "STRING" },
     creator: { type: "STRING", nullable: true },
+    original_title: { type: "STRING", nullable: true },
     category: { type: "STRING", enum: [...CATALOG_CATEGORIES] },
     subcategory: { type: "STRING", nullable: true },
     cover_box: {
@@ -58,7 +62,7 @@ const RESPONSE_SCHEMA = {
     },
   },
   required: ["visible_text", "recognized", "title", "category"],
-  propertyOrdering: ["visible_text", "recognized", "title", "creator", "category", "subcategory", "cover_box"],
+  propertyOrdering: ["visible_text", "recognized", "title", "creator", "original_title", "category", "subcategory", "cover_box"],
 };
 
 /** Fillers the model writes into required fields when it does not know the answer ("brak", "Nieznany tytuł"). */
@@ -128,11 +132,13 @@ export function parseGeminiResponse(json: unknown): RecognizedCover | null {
   if (!title) return null;
 
   const box = parseBox(parsed.cover_box);
+  const originalTitle = optionalString(parsed.original_title);
   return {
     title,
     creator: optionalString(parsed.creator),
     category: isCatalogCategory(parsed.category) ? parsed.category : "other",
     subcategory: optionalString(parsed.subcategory),
+    ...(originalTitle && originalTitle !== title ? { originalTitle } : {}),
     ...(box ? { box } : {}),
   };
 }

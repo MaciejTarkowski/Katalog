@@ -18,4 +18,27 @@ describe("mergeRecognition", () => {
     expect(merged.title).toBe("Red Dead Redemption II");
     expect(merged.cover_url).toBe("https://images.igdb.com/igdb/image/upload/t_cover_big/co1q1f.jpg");
   });
+
+  it("keeps the cover of a hit found by the original title", () => {
+    const merged = mergeRecognition(
+      {
+        title: "Wiedza to potęga",
+        creator: null,
+        category: "game",
+        subcategory: "PS4",
+        originalTitle: "Knowledge is Power",
+      },
+      {
+        title: "Knowledge is Power",
+        artist_creator: null,
+        category: "game",
+        subcategory: null,
+        cover_url: "https://images.igdb.com/igdb/image/upload/t_cover_big/kip.jpg",
+        metadata: {},
+        source: "rawg",
+      }
+    );
+    expect(merged.title).toBe("Wiedza to potęga");
+    expect(merged.cover_url).toContain("kip.jpg");
+  });
 });
