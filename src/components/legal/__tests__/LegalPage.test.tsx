@@ -23,4 +23,12 @@ describe("LegalPage", () => {
     expect(screen.getByRole("link", { name: "Polityka prywatności" })).toHaveAttribute("href", "/privacy");
     expect(screen.getByRole("link", { name: "Usuń konto" })).toHaveAttribute("href", "/delete-account");
   });
+
+  it("has a back-to-app link at the top, before the text", () => {
+    render(<LegalPage texts={PRIVACY} />);
+    const back = screen.getAllByRole("link", { name: "Wróć do aplikacji" });
+    expect(back[0]).toHaveAttribute("href", "/");
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(back[0].compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

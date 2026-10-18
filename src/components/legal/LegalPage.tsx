@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Logo } from "@/components/ui/primitives";
+import { Icon } from "@/components/ui/primitives";
 import { LanguageSwitch } from "@/components/ui/LanguageSwitch";
 import { useI18n } from "@/lib/i18n/locale";
 import { legalText, type LegalDocument } from "@/lib/legal/content";
@@ -16,8 +16,9 @@ export function LegalPage({ texts }: { texts: Texts }) {
   return (
     <main className="flex min-h-screen flex-col items-center bg-bg text-tx">
       <header className="w-full max-w-xl flex items-center justify-between px-5 pt-[max(20px,env(safe-area-inset-top))] pb-2">
-        <Link href="/" aria-label="Katalog">
-          <Logo size={26} />
+        <Link href="/" className="flex items-center gap-1 text-sm font-semibold text-tx">
+          <Icon name="arrow_back_ios" size={18} />
+          {t("legal.backToApp")}
         </Link>
         <LanguageSwitch />
       </header>

@@ -268,11 +268,29 @@ describe("Dashboard", () => {
     expect(screen.getByText("1993")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Usuń Wiedźmin" }));
+    expect(mockDeleteItem).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: "Usunąć element?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Usuń na stałe" }));
     await waitFor(() => {
       expect(mockDeleteItem).toHaveBeenCalledWith("item-1");
       expect(screen.getByText("Usunięto „Wiedźmin”")).toBeInTheDocument();
     });
     expect(screen.queryByRole("heading", { name: "Wiedźmin" })).not.toBeInTheDocument();
+  });
+
+  it("does not delete the item when the confirmation is cancelled", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Wiedźmin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Usuń Wiedźmin" }));
+    const dialog = await screen.findByRole("dialog", { name: "Usunąć element?" });
+    expect(within(dialog).getByText(/Wiedźmin/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Anuluj" }));
+
+    expect(mockDeleteItem).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Wiedźmin", level: 1 })).toBeInTheDocument();
   });
 
   it("signs out from the profile menu", async () => {

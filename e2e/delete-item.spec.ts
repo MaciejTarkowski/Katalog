@@ -4,6 +4,7 @@ import type { Page } from "@playwright/test";
 async function deleteHobbit(page: Page) {
   await page.getByTestId("item-card-b1").getByRole("button", { name: "Hobbit" }).click();
   await page.getByRole("button", { name: "Usuń Hobbit" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Usuń na stałe" }).click();
   await expect(page.getByText("Usunięto „Hobbit”")).toBeVisible();
 }
 

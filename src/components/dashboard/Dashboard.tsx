@@ -23,7 +23,7 @@ import { ShareScreen } from "@/components/app/ShareScreen";
 import { ProfileScreen } from "@/components/app/ProfileScreen";
 import { TabBar, type Tab } from "@/components/app/TabBar";
 import { CollectionTypesPicker } from "@/components/app/CollectionTypesPicker";
-import { Toast } from "@/components/ui/primitives";
+import { Sheet, Toast } from "@/components/ui/primitives";
 import { setLocale, useI18n } from "@/lib/i18n/locale";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 
@@ -40,6 +40,7 @@ export function Dashboard() {
   const [editingTypes, setEditingTypes] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
   const [detail, setDetail] = useState<Item | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Item | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -176,6 +177,7 @@ export function Dashboard() {
   };
 
   const handleDeleteItem = async (item: Item) => {
+    setPendingDelete(null);
     const { success } = await deleteItem(item.id);
     if (success) {
       setItems((prev) => prev.filter((i) => i.id !== item.id));
@@ -252,7 +254,7 @@ export function Dashboard() {
           key={detail.id}
           item={detail}
           onBack={() => setDetail(null)}
-          onDelete={handleDeleteItem}
+          onDelete={setPendingDelete}
           similar={shownItems.filter((i) => i.category === detail.category && i.id !== detail.id)}
           onOpen={setDetail}
           onItemChange={handleItemChange}
@@ -293,6 +295,32 @@ export function Dashboard() {
           onToast={showToast}
         />
       )}
+
+      <Sheet
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        label={t("item.delete.title")}
+        className="px-5 pb-10 gap-3"
+      >
+        <h2 className="text-lg font-bold tracking-[-.02em]">{t("item.delete.title")}</h2>
+        <p className="text-[14.5px] leading-[1.5] text-mu">
+          {t("item.delete.text", { title: pendingDelete?.title ?? "" })}
+        </p>
+        <button
+          type="button"
+          onClick={() => pendingDelete && void handleDeleteItem(pendingDelete)}
+          className="h-[50px] rounded-[15px] bg-rose-500 text-white text-[15px] font-semibold"
+        >
+          {t("item.delete.confirm")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setPendingDelete(null)}
+          className="h-[50px] rounded-[15px] bg-white/[.06] border border-white/15 text-tx text-[15px] font-semibold"
+        >
+          {t("common.cancel")}
+        </button>
+      </Sheet>
 
       <TabBar active={tab} onSelect={selectTab} />
       <Toast message={toast} />
