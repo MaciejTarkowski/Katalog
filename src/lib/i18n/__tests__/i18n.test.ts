@@ -29,6 +29,12 @@ describe("messages", () => {
   });
 });
 
+describe("Polish navigation", () => {
+  it("translates the Home tab as Start", () => {
+    expect(translate("pl", "nav.home")).toBe("Start");
+  });
+});
+
 describe("translate", () => {
   it("fills placeholders and picks plural forms per language", () => {
     expect(translate("en", "summary.items", { count: 1 })).toBe("1 item");

@@ -17,7 +17,7 @@ export const pl: Messages = {
   "summary.items": { one: "{count} pozycja", few: "{count} pozycje", many: "{count} pozycji", other: "{count} pozycji" },
   "summary.categories": { one: "{count} kategoria", few: "{count} kategorie", many: "{count} kategorii", other: "{count} kategorii" },
   "nav.label": "Nawigacja",
-  "nav.home": "Home",
+  "nav.home": "Start",
   "nav.search": "Szukaj",
   "nav.add": "Dodaj",
   "nav.share": "Udostępnij",
