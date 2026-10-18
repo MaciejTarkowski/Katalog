@@ -32,6 +32,9 @@ function GoogleLogo() {
   );
 }
 
+/** Apple sign-in is not set up yet (needs an Apple developer account); flip to show the button again. */
+const SHOW_APPLE_LOGIN = false;
+
 function AppleLogo() {
   return (
     <svg aria-hidden="true" width="20" height="20" viewBox="0 0 384 512" fill="currentColor" className="flex-none -mt-0.5">
@@ -139,10 +142,12 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
         <GoogleLogo />
         {t("auth.google")}
       </button>
-      <button type="button" onClick={() => handleOAuth("apple")} disabled={loading} className={OAUTH_BUTTON}>
-        <AppleLogo />
-        {t("auth.apple")}
-      </button>
+      {SHOW_APPLE_LOGIN && (
+        <button type="button" onClick={() => handleOAuth("apple")} disabled={loading} className={OAUTH_BUTTON}>
+          <AppleLogo />
+          {t("auth.apple")}
+        </button>
+      )}
       <div className="flex items-center gap-3 text-xs text-mu" aria-hidden="true">
         <span className="flex-1 h-px bg-s2" />
         {t("auth.or")}

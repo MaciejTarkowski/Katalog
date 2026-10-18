@@ -127,25 +127,11 @@ describe("AuthForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Kontynuuj z Google" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Provider is not enabled");
   });
-  it("signs in with Apple and returns through the auth callback", async () => {
-    mockOAuth.mockResolvedValue({ error: null });
-    render(<AuthForm />);
-    const button = screen.getByRole("button", { name: "Kontynuuj z Apple" });
-    expect(button.querySelector("svg")).toBeInTheDocument();
-    fireEvent.click(button);
-
-    await waitFor(() => {
-      expect(mockOAuth).toHaveBeenCalledWith({
-        provider: "apple",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-    });
-  });
-
-  it("shows Apple button in sign-up mode too and reports OAuth errors", async () => {
-    mockOAuth.mockResolvedValue({ error: { message: "Provider is not enabled" } });
+  it("does not offer Apple sign-in yet, in either mode", () => {
+    const { unmount } = render(<AuthForm />);
+    expect(screen.queryByRole("button", { name: "Kontynuuj z Apple" })).not.toBeInTheDocument();
+    unmount();
     render(<AuthForm initialMode="signup" />);
-    fireEvent.click(screen.getByRole("button", { name: "Kontynuuj z Apple" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Provider is not enabled");
+    expect(screen.queryByRole("button", { name: "Kontynuuj z Apple" })).not.toBeInTheDocument();
   });
 });
