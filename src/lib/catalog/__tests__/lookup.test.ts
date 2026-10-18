@@ -456,7 +456,7 @@ describe("lookupCatalogItem", () => {
     expect(item).toBeNull();
   });
 
-  it("falls back to the original title when the localized game title finds nothing", async () => {
+  it("searches the game cover by the original title before the localized one", async () => {
     process.env.IGDB_CLIENT_ID = "id";
     process.env.IGDB_CLIENT_SECRET = "secret";
     const searched: string[] = [];
@@ -482,7 +482,7 @@ describe("lookupCatalogItem", () => {
       platform: "PS4",
       category: "game",
     });
-    expect(searched).toEqual(["Wiedza to potęga", "Knowledge is Power"]);
+    expect(searched).toEqual(["Knowledge is Power"]);
     expect(item?.cover_url).toContain("/kip.jpg");
   });
 

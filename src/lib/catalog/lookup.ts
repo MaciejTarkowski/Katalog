@@ -72,15 +72,18 @@ async function lookupByEan(ean: string, categoryHint?: string): Promise<CatalogI
   return pickBest(await settled(tasks), categoryHint);
 }
 
-/** Title names to try for a game, in order: as on the cover, the original title, the title without a subtitle. */
+/**
+ * Title names to try for a game, in order: the original title (catalogs know games by it, not by the Polish
+ * one), as on the cover, the title without a subtitle.
+ */
 function gameTitles(title: string, originalTitle?: string | null): string[] {
-  const names = [title, originalTitle ?? "", title.split(/\s*[:–—-]\s+/)[0]]
+  const names = [originalTitle ?? "", title, title.split(/\s*[:–—-]\s+/)[0]]
     .map((name) => cleanSearchQuery(name))
     .filter(Boolean);
   return [...new Set(names)];
 }
 
-/** RAWG + IGDB search that falls back to the original title when the first name finds no cover. */
+/** RAWG + IGDB search by the original title first, then by the title on the cover when that finds no cover. */
 async function searchGame(
   title: string,
   known?: Pick<LookupInput, "originalTitle" | "platform">
