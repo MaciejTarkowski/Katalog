@@ -262,7 +262,6 @@ function Stage({
   );
 }
 
-const inCategory = (value: string) => (value === "all" ? undefined : value);
 
 export function AddScreen({ categories: shownCategories, onAdd, onToast }: AddScreenProps) {
   const { t } = useI18n();
@@ -368,6 +367,12 @@ export function AddScreen({ categories: shownCategories, onAdd, onToast }: AddSc
   };
 
   // Debounced search over catalogs (one page per call) and other users' items.
+  // "All" means all the categories kept in this catalog, never every category the providers know.
+  const searchScope = (category: string) =>
+    category === "all" ? { categories: categories.map((c) => c.value) } : { category };
+  const inScope = (itemCategory: string, category: string) =>
+    category === "all" ? categories.some((c) => c.value === itemCategory) : itemCategory === category;
+
   const search = (value: string, category = searchCategory) => {
     setQuery(value);
     setSelected(null);
@@ -385,13 +390,13 @@ export function AddScreen({ categories: shownCategories, onAdd, onToast }: AddSc
     setSearching(true);
     searchTimer.current = setTimeout(async () => {
       const [catalog, community] = await Promise.all([
-        searchCatalogItems(text, { category: inCategory(category) }).catch(
+        searchCatalogItems(text, searchScope(category)).catch(
           (): CatalogSearchPage => ({ items: [], hasMore: false })
         ),
         searchCommunityItems(text).then((r) => r.data ?? []).catch(() => []),
       ]);
       if (seq !== searchSeq.current) return;
-      const communityHits = community.filter((r) => !inCategory(category) || r.category === category);
+      const communityHits = community.filter((r) => inScope(r.category, category));
       setResults([...catalog.items, ...communityHits]);
       setHasMore(catalog.hasMore);
       setSearching(false);
@@ -404,7 +409,7 @@ export function AddScreen({ categories: shownCategories, onAdd, onToast }: AddSc
     const seq = searchSeq.current;
     setLoadingMore(true);
     try {
-      const next = await searchCatalogItems(text, { category: inCategory(searchCategory), page: pageRef.current + 1 });
+      const next = await searchCatalogItems(text, { ...searchScope(searchCategory), page: pageRef.current + 1 });
       if (seq !== searchSeq.current) return;
       pageRef.current += 1;
       setResults((prev) => [...prev, ...next.items]);

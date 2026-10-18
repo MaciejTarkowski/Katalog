@@ -49,6 +49,9 @@ describe("POST /api/catalog/search", () => {
     await POST(request({ query: "mario", category: "game", offset: 40 }));
     expect(mockSearch).toHaveBeenLastCalledWith("mario", { category: "game", offset: 40 });
 
+    await POST(request({ query: "mario", categories: ["game", "bogus", "book"] }));
+    expect(mockSearch).toHaveBeenLastCalledWith("mario", { category: undefined, categories: ["game", "book"], offset: 0 });
+
     await POST(request({ query: "mario", category: "bogus", offset: -3 }));
     expect(mockSearch).toHaveBeenLastCalledWith("mario", { category: undefined, offset: 0 });
   });

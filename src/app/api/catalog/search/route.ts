@@ -13,9 +13,12 @@ export async function POST(req: NextRequest) {
     }
 
     const category = SEARCH_CATEGORIES.find((c) => c === body.category) as SearchCategory | undefined;
+    const categories = Array.isArray(body.categories)
+      ? SEARCH_CATEGORIES.filter((c) => (body.categories as unknown[]).includes(c))
+      : undefined;
     const offset = Number.isInteger(body.offset) && body.offset > 0 ? body.offset : 0;
 
-    const { items, hasMore } = await searchCatalog(query, { category, offset });
+    const { items, hasMore } = await searchCatalog(query, { category, categories, offset });
     return NextResponse.json({ success: true, data: items.map(toClientPayload), hasMore });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : t("scan.searchError");

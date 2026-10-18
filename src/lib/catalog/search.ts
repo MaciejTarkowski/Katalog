@@ -49,6 +49,8 @@ export const SEARCH_CATEGORIES: readonly SearchCategory[] = ["music", "game", "b
 
 export interface SearchOptions {
   category?: SearchCategory;
+  /** Several categories at once (the ones kept in the user's catalog); ignored when `category` is set. */
+  categories?: readonly SearchCategory[];
   /** How many results of this search were already delivered (a multiple of `SEARCH_LIMIT`). */
   offset?: number;
 }
@@ -82,7 +84,9 @@ export async function searchCatalog(rawQuery: string, options: SearchOptions = {
   if (!query) return { items: [], hasMore: false };
 
   const { category, offset = 0 } = options;
-  const providers = category ? PROVIDERS[category] : ALL_PROVIDERS;
+  const allowed: readonly SearchCategory[] | undefined = category ? [category] : options.categories;
+  if (allowed && allowed.length === 0) return { items: [], hasMore: false };
+  const providers = allowed ? [...new Set(allowed.flatMap((c) => PROVIDERS[c]))] : ALL_PROVIDERS;
   const perProvider = Math.ceil(SEARCH_LIMIT / providers.length);
   const providerOffset = Math.floor(offset / providers.length);
 
@@ -95,7 +99,7 @@ export async function searchCatalog(rawQuery: string, options: SearchOptions = {
   const items = lists
     .flatMap((list) =>
       list
-        .filter((item) => item.title && (!category || item.category === category))
+        .filter((item) => item.title && (!allowed || (allowed as readonly string[]).includes(item.category)))
         .map((item, rank) => ({ item, score: relevance(item, query, rank) }))
     )
     .sort((a, b) => b.score - a.score)

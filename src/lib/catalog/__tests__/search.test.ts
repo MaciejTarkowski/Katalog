@@ -76,6 +76,26 @@ describe("searchCatalog", () => {
     expect(items.every((i) => i.category === "music")).toBe(true);
   });
 
+  it("queries only the providers of the given categories and drops other results", async () => {
+    mockCatalog({
+      "musicbrainz.org/ws/2/release-group": { "release-groups": [pinkFloyd] },
+      "api.rawg.io": { results: [{ name: "Dark Souls" }] },
+    });
+
+    const { items } = await searchCatalog("Dark", { categories: ["game"] });
+
+    const urls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
+    expect(urls.some((u) => u.includes("openlibrary.org") || u.includes("musicbrainz.org") || u.includes("discogs"))).toBe(false);
+    expect(items.every((i) => i.category === "game")).toBe(true);
+  });
+
+  it("returns nothing for an empty category list", async () => {
+    mockCatalog({});
+    const page = await searchCatalog("Dark", { categories: [] });
+    expect(page).toEqual({ items: [], hasMore: false });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("uses the same page size for every category", async () => {
     mockCatalog({
       "openlibrary.org/search.json": { docs: [] },

@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { AddScreen } from "../AddScreen";
+import { localizedCategories } from "@/lib/items/display";
+import { translate } from "@/lib/i18n/translate";
 
 const mockScan = vi.fn();
 const mockComplete = vi.fn();
@@ -144,7 +146,7 @@ describe("AddScreen", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Tytuł lub twórca" }), { target: { value: "lem" } });
 
     const pick = await screen.findByRole("button", { name: /Cyberiada/ });
-    expect(mockSearch).toHaveBeenCalledWith("lem", { category: undefined });
+    expect(mockSearch).toHaveBeenCalledWith("lem", { categories: expect.arrayContaining(["book", "music", "game", "comic"]) });
     expect(mockLookup).not.toHaveBeenCalled();
     expect(mockCommunity).toHaveBeenCalledWith("lem");
     expect(screen.getByText("2 wpisy w katalogach i kolekcjach")).toBeInTheDocument();
@@ -183,6 +185,29 @@ describe("AddScreen", () => {
 
     expect(await screen.findByRole("button", { name: /Gra A/ })).toBeInTheDocument();
     expect(mockSearch).toHaveBeenLastCalledWith("gra", { category: "game" });
+    expect(screen.queryByRole("button", { name: /Cyberiada/ })).not.toBeInTheDocument();
+  });
+
+  it("with \"All\" searches only the categories kept in the catalog, community items included", async () => {
+    mockCommunity.mockResolvedValue({
+      data: [...albums(["Cyberiada"], "book"), ...albums(["Gra B"], "game")],
+      error: null,
+    });
+    mockSearch.mockResolvedValue({ items: albums(["Gra A"], "game"), hasMore: false });
+    render(
+      <AddScreen
+        categories={localizedCategories((k, v) => translate("pl", k, v)).filter((c) => c.value === "game")}
+        onAdd={vi.fn()}
+        onToast={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /lub wpisz tytuł/ }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Tytuł lub twórca" }), { target: { value: "gra" } });
+
+    expect(await screen.findByRole("button", { name: /Gra A/ })).toBeInTheDocument();
+    expect(mockSearch).toHaveBeenLastCalledWith("gra", { categories: ["game"] });
+    expect(screen.getByRole("button", { name: /Gra B/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Cyberiada/ })).not.toBeInTheDocument();
   });
 
@@ -299,7 +324,7 @@ describe("AddScreen", () => {
     await act(async () => reachEnd());
 
     expect(await screen.findByRole("button", { name: /Album C/ })).toBeInTheDocument();
-    expect(mockSearch).toHaveBeenLastCalledWith("pink", { category: undefined, page: 1 });
+    expect(mockSearch).toHaveBeenLastCalledWith("pink", { categories: expect.any(Array), page: 1 });
     vi.unstubAllGlobals();
   });
   describe("cover arriving after the title", () => {

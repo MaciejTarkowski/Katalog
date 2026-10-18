@@ -119,12 +119,12 @@ export interface CatalogSearchPage {
 /** Text search, one page (`SEARCH_LIMIT` items) at a time; `page` starts at 0. */
 export async function searchCatalogItems(
   query: string,
-  { category, page = 0 }: { category?: string; page?: number } = {}
+  { category, categories, page = 0 }: { category?: string; categories?: string[]; page?: number } = {}
 ): Promise<CatalogSearchPage> {
   const res = await fetch("/api/catalog/search", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...localeHeaders() },
-    body: JSON.stringify({ query, category, offset: page * SEARCH_LIMIT }),
+    body: JSON.stringify({ query, category, categories, offset: page * SEARCH_LIMIT }),
   });
   const json = await res.json();
   if (!res.ok || !json.success) {
