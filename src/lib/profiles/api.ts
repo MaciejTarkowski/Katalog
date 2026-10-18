@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { Profile } from "@/types/database";
+import { Profile, SharedProfile } from "@/types/database";
 import { isKnownCategory } from "@/lib/items/display";
 import { t } from "@/lib/i18n/locale";
 import type { Locale } from "@/lib/i18n/config";
@@ -13,7 +13,7 @@ export async function fetchProfile(
     const supabase = createClient();
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, display_name, collection_types, language")
+      .select("id, display_name, collection_types, language, share_enabled")
       .eq("id", userId)
       .maybeSingle();
 
@@ -22,6 +22,27 @@ export async function fetchProfile(
     }
 
     return { data: (data as Profile) || null, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : t("profile.error.fetch");
+    return { data: null, error: message };
+  }
+}
+
+/**
+ * Name and categories of a collection its owner has shared (RPC `shared_profile`).
+ * `data` is null when the user does not exist or does not share the collection.
+ */
+export async function fetchSharedProfile(
+  userId: string
+): Promise<{ data: SharedProfile | null; error: string | null }> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("shared_profile", { p_user_id: userId });
+    if (error) {
+      return { data: null, error: error.message };
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    return { data: (row as SharedProfile | undefined) ?? null, error: null };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : t("profile.error.fetch");
     return { data: null, error: message };
@@ -159,6 +180,32 @@ export async function updateLanguage(language: Locale): Promise<{ success: boole
     return { success: true, error: null };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : t("profile.error.saveLanguage");
+    return { success: false, error: message };
+  }
+}
+
+/** Turns the public link to the current user's collection on or off (private by default). */
+export async function updateShareEnabled(enabled: boolean): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: t("auth.notLoggedIn") };
+    }
+
+    const { error } = await supabase.from("profiles").upsert({ id: user.id, share_enabled: enabled });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : t("share.error.save");
     return { success: false, error: message };
   }
 }

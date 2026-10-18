@@ -11,15 +11,16 @@ vi.mock("@/lib/items/api", () => ({
 }));
 
 const mockFetchProfile = vi.fn();
+const SHARED = { data: { display_name: null, collection_types: null }, error: null };
 
 vi.mock("@/lib/profiles/api", () => ({
-  fetchProfile: (userId: string) => mockFetchProfile(userId),
+  fetchSharedProfile: (userId: string) => mockFetchProfile(userId),
 }));
 
 describe("PublicCollectionView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFetchProfile.mockResolvedValue({ data: null, error: null });
+    mockFetchProfile.mockResolvedValue(SHARED);
   });
 
   it("fetches and renders public items without delete buttons", async () => {
@@ -140,7 +141,7 @@ describe("PublicCollectionView", () => {
   it("shows the name of the user who shared the collection", async () => {
     mockFetchPublicItems.mockResolvedValue({ data: [], error: null });
     mockFetchProfile.mockResolvedValue({
-      data: { id: "user-public", display_name: "Maciek" },
+      data: { display_name: "Maciek", collection_types: null },
       error: null,
     });
 
@@ -150,6 +151,16 @@ describe("PublicCollectionView", () => {
       await screen.findByRole("heading", { name: "Kolekcja użytkownika Maciek" })
     ).toBeInTheDocument();
     expect(mockFetchProfile).toHaveBeenCalledWith("user-public");
+  });
+
+  it("says the collection is private when its owner does not share it", async () => {
+    mockFetchPublicItems.mockResolvedValue({ data: [], error: null });
+    mockFetchProfile.mockResolvedValue({ data: null, error: null });
+
+    render(<PublicCollectionView userId="user-private" />);
+
+    expect(await screen.findByText("Ta kolekcja jest prywatna")).toBeInTheDocument();
+    expect(screen.queryByText("Brak elementów w wybranej kategorii.")).not.toBeInTheDocument();
   });
 
   it("falls back to a generic title when the user has no display name", async () => {
@@ -207,7 +218,7 @@ describe("PublicCollectionView", () => {
     await waitFor(() => expect(mockFetchPublicItems).toHaveBeenCalled());
     expect(screen.queryByTestId("item-card-b")).not.toBeInTheDocument();
 
-    await act(async () => resolveProfile({ data: { id: "user-public", display_name: "M", collection_types: ["game"] }, error: null }));
+    await act(async () => resolveProfile({ data: { display_name: "M", collection_types: ["game"] }, error: null }));
 
     expect(await screen.findByTestId("item-card-g")).toBeInTheDocument();
     expect(screen.queryByTestId("item-card-b")).not.toBeInTheDocument();

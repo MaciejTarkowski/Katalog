@@ -25,7 +25,13 @@ export type CommunityItem = Pick<
 
 export type ItemUpdate = Partial<Omit<Item, "id" | "user_id" | "created_at">>;
 
-/** Public profile (table `profiles`) — the name shown on a shared collection. */
+/** What a shared collection's page may show about its owner (RPC `shared_profile`). */
+export interface SharedProfile {
+  display_name: string | null;
+  collection_types: string[] | null;
+}
+
+/** Profile of a user (table `profiles`, readable by its owner only). */
 export interface Profile {
   id: string;
   display_name: string | null;
@@ -33,4 +39,6 @@ export interface Profile {
   collection_types?: string[] | null;
   /** UI language picked by the user ("en" | "pl" | "de"); null = not picked, the device's choice applies. */
   language?: string | null;
+  /** Whether the collection is reachable under /share/<id>; false (private) until the user turns it on. */
+  share_enabled?: boolean;
 }

@@ -38,17 +38,14 @@ export async function fetchItems(category?: string): Promise<{ data: Item[] | nu
   }
 }
 
+/** Items of a collection its owner has shared (RPC `shared_items`); empty while sharing is off. */
 export async function fetchPublicItems(
   userId: string,
   category?: string
 ): Promise<{ data: Item[] | null; error: string | null }> {
   try {
     const supabase = createClient();
-    let query = supabase
-      .from("items")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+    let query = supabase.rpc("shared_items", { p_user_id: userId });
 
     if (category && category !== "all") {
       query = query.eq("category", category);

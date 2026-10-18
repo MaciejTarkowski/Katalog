@@ -41,8 +41,11 @@ function createQueryBuilder() {
   return builder;
 }
 
+const mockRpc = vi.fn();
+
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
+    rpc: mockRpc.mockImplementation(() => createQueryBuilder()),
     auth: {
       getUser: mockGetUser,
     },
@@ -112,6 +115,18 @@ describe("Items API", () => {
     const result = await fetchPublicItems("user-456");
     expect(result.data).toEqual(mockData);
     expect(result.error).toBeNull();
+    // Only through the RPC, which returns rows only when the owner shares the collection.
+    expect(mockRpc).toHaveBeenCalledWith("shared_items", { p_user_id: "user-456" });
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
+  it("fetchPublicItems filters by category and reports errors", async () => {
+    currentQueryResult = { data: [], error: null };
+    await fetchPublicItems("user-456", "game");
+    expect(mockQueryEq).toHaveBeenCalledWith("category", "game");
+
+    currentQueryResult = { data: null, error: { message: "boom" } };
+    expect(await fetchPublicItems("user-456")).toEqual({ data: null, error: "boom" });
   });
 
   it("addItem returns error when user is not authenticated", async () => {

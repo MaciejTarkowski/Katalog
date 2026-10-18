@@ -6,15 +6,26 @@ const mockSelect = vi.fn(() => ({ eq: mockEq }));
 const mockUpsert = vi.fn();
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn(() => ({ select: mockSelect, upsert: mockUpsert }));
+const mockRpc = vi.fn();
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
+    rpc: mockRpc,
   }),
 }));
 
-import { ensureProfile, fetchProfile, nameFromMetadata, updateCollectionTypes, updateDisplayName, updateLanguage } from "../api";
+import {
+  ensureProfile,
+  fetchProfile,
+  fetchSharedProfile,
+  nameFromMetadata,
+  updateCollectionTypes,
+  updateDisplayName,
+  updateLanguage,
+  updateShareEnabled,
+} from "../api";
 
 describe("Profiles API", () => {
   beforeEach(() => {
@@ -25,7 +36,7 @@ describe("Profiles API", () => {
     mockMaybeSingle.mockResolvedValue({ data: { id: "u1", display_name: "Maciek" }, error: null });
     const result = await fetchProfile("u1");
     expect(mockFrom).toHaveBeenCalledWith("profiles");
-    expect(mockSelect).toHaveBeenCalledWith("id, display_name, collection_types, language");
+    expect(mockSelect).toHaveBeenCalledWith("id, display_name, collection_types, language, share_enabled");
     expect(mockEq).toHaveBeenCalledWith("id", "u1");
     expect(result).toEqual({ data: { id: "u1", display_name: "Maciek" }, error: null });
   });
@@ -38,6 +49,41 @@ describe("Profiles API", () => {
   it("fetchProfile returns the database error", async () => {
     mockMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
     expect(await fetchProfile("u1")).toEqual({ data: null, error: "boom" });
+  });
+
+  it("fetchSharedProfile reads only the shared profile through the RPC", async () => {
+    mockRpc.mockResolvedValue({ data: [{ display_name: "Maciek", collection_types: ["game"] }], error: null });
+    const result = await fetchSharedProfile("u1");
+    expect(mockRpc).toHaveBeenCalledWith("shared_profile", { p_user_id: "u1" });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(result).toEqual({ data: { display_name: "Maciek", collection_types: ["game"] }, error: null });
+  });
+
+  it("fetchSharedProfile returns null data when the collection is not shared", async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    expect(await fetchSharedProfile("u1")).toEqual({ data: null, error: null });
+  });
+
+  it("fetchSharedProfile returns the database error", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    expect(await fetchSharedProfile("u1")).toEqual({ data: null, error: "boom" });
+  });
+
+  it("updateShareEnabled saves the flag for the current user", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    mockUpsert.mockResolvedValue({ error: null });
+    expect(await updateShareEnabled(true)).toEqual({ success: true, error: null });
+    expect(mockUpsert).toHaveBeenCalledWith({ id: "u1", share_enabled: true });
+  });
+
+  it("updateShareEnabled fails when nobody is signed in or the save fails", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    expect((await updateShareEnabled(true)).success).toBe(false);
+    expect(mockUpsert).not.toHaveBeenCalled();
+
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    mockUpsert.mockResolvedValue({ error: { message: "boom" } });
+    expect(await updateShareEnabled(false)).toEqual({ success: false, error: "boom" });
   });
 
   it("updateDisplayName upserts the trimmed name for the current user", async () => {

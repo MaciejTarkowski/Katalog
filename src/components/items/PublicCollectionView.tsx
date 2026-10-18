@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Item } from "@/types/database";
 import { fetchPublicItems } from "@/lib/items/api";
-import { fetchProfile } from "@/lib/profiles/api";
+import { fetchSharedProfile } from "@/lib/profiles/api";
 import { Chip, Cover, SectionLoader } from "@/components/ui/primitives";
 import { useImagesReady } from "@/lib/image/useImagesReady";
 import { useI18n } from "@/lib/i18n/locale";
@@ -47,6 +47,8 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
   const [ownerName, setOwnerName] = useState<string | null>(null);
   // Categories the owner keeps: undefined until the profile is in, null = all of them.
   const [ownerTypes, setOwnerTypes] = useState<string[] | null | undefined>(undefined);
+  // The collection is not shared (or does not exist): the owner has not turned the link on.
+  const [isPrivate, setIsPrivate] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,8 +69,9 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchProfile(userId).then(({ data }) => {
+    fetchSharedProfile(userId).then(({ data }) => {
       if (cancelled) return;
+      setIsPrivate(!data);
       setOwnerName(data?.display_name || null);
       setOwnerTypes(data?.collection_types ?? null);
     });
@@ -163,6 +166,11 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
         </div>
       ) : loading || ownerTypes === undefined || !coversReady ? (
         <SectionLoader className="mt-6" />
+      ) : isPrivate ? (
+        <div className="mx-5 mt-6 px-5 py-11 rounded-[18px] bg-s1 border border-s2 text-center">
+          <p className="text-[15px] font-semibold">{t("public.private.title")}</p>
+          <p className="text-[13px] text-mu mt-1">{t("public.private.text")}</p>
+        </div>
       ) : rows.length === 0 ? (
         <div className="mx-5 mt-6 px-5 py-11 rounded-[18px] bg-s1 border border-s2 text-center">
           <p className="text-[15px] font-semibold">{query ? t("search.noResultsFor", { query: searchQuery.trim() }) : t("home.empty.title")}</p>
