@@ -10,12 +10,17 @@ interface ShareScreenProps {
   userId: string;
   name: string;
   items: Item[];
+  /** Whether the collection is reachable under the link; private until the owner turns it on. */
+  sharing: boolean;
+  /** Turns the link on or off; resolves to null on success, or the error message to show. */
+  onSharingChange: (enabled: boolean) => Promise<string | null>;
   onToast: (message: string) => void;
 }
 
-export function ShareScreen({ userId, name, items, onToast }: ShareScreenProps) {
+export function ShareScreen({ userId, name, items, sharing, onSharingChange, onToast }: ShareScreenProps) {
   const { t } = useI18n();
-  const [shared, setShared] = useState(false);
+  const shared = sharing;
+  const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -23,11 +28,13 @@ export function ShareScreen({ userId, name, items, onToast }: ShareScreenProps) 
   const fan = [covered[0] ?? items[0], covered[1] ?? items[1], covered[2] ?? items[2]];
 
   useEffect(() => () => clearTimeout(copyTimer.current), []);
+  useEffect(() => setShareUrl(`${window.location.origin}/share/${userId}`), [userId]);
 
-  const reveal = () => {
-    if (!shared) onToast(t("share.linkReady"));
-    setShareUrl(`${window.location.origin}/share/${userId}`);
-    setShared(true);
+  const change = async (enabled: boolean) => {
+    setBusy(true);
+    const error = await onSharingChange(enabled);
+    setBusy(false);
+    onToast(error ?? t(enabled ? "share.linkReady" : "share.stopped"));
   };
 
   const copy = async () => {
@@ -52,7 +59,7 @@ export function ShareScreen({ userId, name, items, onToast }: ShareScreenProps) 
     <div className="px-6 pt-[max(12px,env(safe-area-inset-top))] pb-[120px] grid content-start grid-cols-[minmax(0,1fr)]">
       <h1 className="text-[30px] font-extrabold tracking-[-.04em] pt-[18px]">{t("share.title")}</h1>
       <p className="text-[15px] text-mu mt-1.5 leading-[1.45] text-pretty">
-        {t("share.intro")}
+        {t("share.intro")} {!shared && t("share.privateNote")}
       </p>
 
       <div aria-hidden="true" className="relative h-[250px] mt-[34px]">
@@ -68,7 +75,8 @@ export function ShareScreen({ userId, name, items, onToast }: ShareScreenProps) 
 
       <button
         type="button"
-        onClick={reveal}
+        onClick={() => !shared && change(true)}
+        disabled={busy}
         className="mt-7 h-14 rounded-2xl bg-ac text-act text-[17px] font-semibold flex items-center justify-center gap-2 shadow-[0_14px_34px_-12px_var(--ac)]"
       >
         <Icon name="ios_share" />
@@ -80,7 +88,7 @@ export function ShareScreen({ userId, name, items, onToast }: ShareScreenProps) 
         inert={!shared}
         className="overflow-hidden"
         style={{
-          maxHeight: shared ? 140 : 0,
+          maxHeight: shared ? 200 : 0,
           opacity: shared ? 1 : 0,
           transform: `translateY(${shared ? 0 : -8}px)`,
           transition: "max-height .5s cubic-bezier(.2,.8,.2,1), opacity .4s .1s, transform .5s cubic-bezier(.2,.8,.2,1)",
@@ -105,6 +113,14 @@ export function ShareScreen({ userId, name, items, onToast }: ShareScreenProps) 
             <Icon name={copied ? "check" : "content_copy"} />
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => change(false)}
+          disabled={busy}
+          className="mt-3.5 w-full h-11 rounded-[13px] text-[14px] font-medium text-mu underline underline-offset-2"
+        >
+          {t("share.stop")}
+        </button>
       </div>
     </div>
   );

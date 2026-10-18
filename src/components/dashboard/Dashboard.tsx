@@ -5,7 +5,13 @@ import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { Item } from "@/types/database";
 import { fetchItems, addItem, deleteItem, updateItemMetadata } from "@/lib/items/api";
-import { ensureProfile, nameFromMetadata, updateCollectionTypes, updateLanguage } from "@/lib/profiles/api";
+import {
+  ensureProfile,
+  nameFromMetadata,
+  updateCollectionTypes,
+  updateLanguage,
+  updateShareEnabled,
+} from "@/lib/profiles/api";
 import { CATEGORIES, filterByTypes, initialOf, visibleCategories } from "@/lib/items/display";
 import { Welcome } from "@/components/auth/Welcome";
 import { ItemDetailView } from "@/components/items/ItemDetailView";
@@ -29,6 +35,7 @@ export function Dashboard() {
   const [displayName, setDisplayName] = useState("");
   // Item categories the user keeps: undefined = unknown (show all), null = not chosen yet (ask).
   const [types, setTypes] = useState<string[] | null | undefined>(undefined);
+  const [sharing, setSharing] = useState(false);
   const [editingTypes, setEditingTypes] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
   const [detail, setDetail] = useState<Item | null>(null);
@@ -94,6 +101,7 @@ export function Dashboard() {
       if (cancelled) return;
       setDisplayName(data?.display_name || "");
       setTypes(data?.collection_types);
+      setSharing(data?.share_enabled === true);
       // The language saved in the profile follows the user to every device.
       if (isLocale(data?.language)) setLocale(data.language);
     });
@@ -112,6 +120,7 @@ export function Dashboard() {
     setUser(null);
     setItems([]);
     setTypes(undefined);
+    setSharing(false);
     setEditingTypes(false);
     setTab("home");
     setDetail(null);
@@ -128,6 +137,14 @@ export function Dashboard() {
     if (!success) return error || t("types.saveFailed");
     setTypes(next);
     setEditingTypes(false);
+    return null;
+  };
+
+  /** Returns null on success, or the error message to show the user. */
+  const handleSharingChange = async (enabled: boolean): Promise<string | null> => {
+    const { success, error } = await updateShareEnabled(enabled);
+    if (!success) return error || t("share.error.save");
+    setSharing(enabled);
     return null;
   };
 
@@ -237,7 +254,14 @@ export function Dashboard() {
       ) : tab === "add" ? (
         <AddScreen categories={categories} onAdd={handleAddItem} onToast={showToast} />
       ) : tab === "share" ? (
-        <ShareScreen userId={user.id} name={name} items={shownItems} onToast={showToast} />
+        <ShareScreen
+          userId={user.id}
+          name={name}
+          items={shownItems}
+          sharing={sharing}
+          onSharingChange={handleSharingChange}
+          onToast={showToast}
+        />
       ) : (
         <ProfileScreen
           name={displayName}

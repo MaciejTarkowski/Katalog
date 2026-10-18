@@ -55,6 +55,7 @@ const mockEnsureProfile = vi.fn();
 const mockUpdateDisplayName = vi.fn();
 const mockUpdateCollectionTypes = vi.fn();
 const mockUpdateLanguage = vi.fn();
+const mockUpdateShareEnabled = vi.fn();
 
 vi.mock("@/lib/profiles/api", async (importOriginal) => ({
   DISPLAY_NAME_MAX_LENGTH: 50,
@@ -63,6 +64,7 @@ vi.mock("@/lib/profiles/api", async (importOriginal) => ({
   updateDisplayName: (name: string) => mockUpdateDisplayName(name),
   updateCollectionTypes: (types: string[]) => mockUpdateCollectionTypes(types),
   updateLanguage: (language: string) => mockUpdateLanguage(language),
+  updateShareEnabled: (enabled: boolean) => mockUpdateShareEnabled(enabled),
 }));
 
 const USER = { id: "user-test-uuid", email: "kolekcjoner@example.com" };
@@ -73,6 +75,7 @@ describe("Dashboard", () => {
     vi.clearAllMocks();
     mockEnsureProfile.mockResolvedValue({ data: null, error: null });
     mockDeleteItem.mockResolvedValue({ success: true, error: null });
+    mockUpdateShareEnabled.mockResolvedValue({ success: true, error: null });
   });
 
   it("shows the welcome screen and opens the login sheet when not authenticated", async () => {
@@ -138,7 +141,10 @@ describe("Dashboard", () => {
     expect(screen.getByRole("button", { name: "Zeskanuj okładkę" })).toBeInTheDocument();
   });
 
-  it("reveals and copies the public collection share link", async () => {
+  const shareButton = () =>
+    within(screen.getByText(/Każdy z linkiem zobaczy Twoją kolekcję/).parentElement!).getByRole("button", { name: "Udostępnij" });
+
+  it("keeps the collection private until sharing is turned on, then reveals and copies the link", async () => {
     mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
     const writeTextMock = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText: writeTextMock } });
@@ -147,15 +153,47 @@ describe("Dashboard", () => {
     await screen.findByRole("region", { name: "Książki" });
     fireEvent.click(tab("Udostępnij"));
 
-    const main = screen.getByText("Każdy z linkiem zobaczy Twoją kolekcję — bez zakładania konta.").parentElement!;
-    fireEvent.click(within(main).getByRole("button", { name: "Udostępnij" }));
-    expect(screen.getByTestId("share-url")).toHaveTextContent("/share/user-test-uuid");
+    expect(screen.getByText(/Twoja kolekcja jest prywatna, dopóki jej nie udostępnisz/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Kopiuj link" })).not.toBeInTheDocument();
+    expect(mockUpdateShareEnabled).not.toHaveBeenCalled();
+
+    fireEvent.click(shareButton());
+    expect(await screen.findByTestId("share-url")).toHaveTextContent("/share/user-test-uuid");
+    expect(mockUpdateShareEnabled).toHaveBeenCalledWith(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Kopiuj link" }));
     await waitFor(() => {
       expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("/share/user-test-uuid"));
       expect(screen.getByText("Skopiowano link do schowka!")).toBeInTheDocument();
     });
+  });
+
+  it("starts with the link shown when the collection is already shared, and can stop sharing", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockEnsureProfile.mockResolvedValue({ data: { id: USER.id, display_name: "Maciek", share_enabled: true }, error: null });
+
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+    fireEvent.click(tab("Udostępnij"));
+    expect(screen.getByRole("button", { name: "Kopiuj link" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Przestań udostępniać" }));
+    await waitFor(() => expect(mockUpdateShareEnabled).toHaveBeenCalledWith(false));
+    expect(await screen.findByText("Udostępnianie wyłączone – link już nie działa")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Kopiuj link" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the collection private and shows the error when turning sharing on fails", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockUpdateShareEnabled.mockResolvedValue({ success: false, error: "boom" });
+
+    render(<Dashboard />);
+    await screen.findByRole("region", { name: "Książki" });
+    fireEvent.click(tab("Udostępnij"));
+    fireEvent.click(shareButton());
+
+    expect(await screen.findByText("boom")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Kopiuj link" })).not.toBeInTheDocument();
   });
 
   it("shows and saves the display name on the profile", async () => {
