@@ -37,11 +37,12 @@ CREATE INDEX IF NOT EXISTS idx_items_created_at ON public.items (created_at DESC
 -- 4. Zabezpieczenie Row Level Security (RLS)
 ALTER TABLE public.items ENABLE ROW LEVEL SECURITY;
 
--- Polityki RLS: Każdy może przeglądać kolekcje (publiczny odczyt), ale modyfikować może wyłącznie właściciel
-CREATE POLICY "Anyone can view public items"
+-- Polityki RLS: kolekcje są prywatne - czyta i modyfikuje je wyłącznie właściciel.
+-- Udostępnioną kolekcję czyta się przez funkcje shared_items / shared_profile (patrz sekcja 7).
+CREATE POLICY "Users can view own items"
     ON public.items
     FOR SELECT
-    USING (true);
+    USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert own items"
     ON public.items
@@ -105,18 +106,20 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     ),
     -- Język interfejsu wybrany przez użytkownika (NULL = wybór z urządzenia, domyślnie angielski).
     language TEXT CHECK (language IN ('en', 'pl', 'de')),
+    -- Czy kolekcja jest dostępna pod linkiem /share/<id>; domyślnie prywatna.
+    share_enabled BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-COMMENT ON TABLE public.profiles IS 'Publiczny profil użytkownika - nazwa widoczna w /share/<userId>';
+COMMENT ON TABLE public.profiles IS 'Profil użytkownika (prywatny); nazwa widoczna w /share/<userId> tylko gdy share_enabled';
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view profiles"
+CREATE POLICY "Users can view own profile"
     ON public.profiles
     FOR SELECT
-    USING (true);
+    USING (auth.uid() = id);
 
 CREATE POLICY "Users can insert own profile"
     ON public.profiles
@@ -158,3 +161,35 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_user();
+
+-- Udostępniona kolekcja: tylko znając userId i tylko po włączeniu udostępniania (nie da się jej wylistować).
+CREATE OR REPLACE FUNCTION public.shared_profile(p_user_id UUID)
+RETURNS TABLE (display_name TEXT, collection_types TEXT[])
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT p.display_name, p.collection_types
+    FROM public.profiles p
+    WHERE p.id = p_user_id AND p.share_enabled;
+$$;
+
+CREATE OR REPLACE FUNCTION public.shared_items(p_user_id UUID)
+RETURNS SETOF public.items
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT i.*
+    FROM public.items i
+    WHERE i.user_id = p_user_id
+      AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = p_user_id AND p.share_enabled)
+    ORDER BY i.created_at DESC;
+$$;
+
+REVOKE ALL ON FUNCTION public.shared_profile(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.shared_items(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.shared_profile(UUID) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shared_items(UUID) TO anon, authenticated;
