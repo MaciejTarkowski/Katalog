@@ -118,6 +118,11 @@ export async function mockBackend(page: Page, seed: MockItem[] = SEED_ITEMS): Pr
     await route.fulfill({ json: { success: true, data: SCANNED } });
   });
 
+  // Wyszukiwanie tekstowe w bazach katalogowych: bez sieci, wyniki tylko z kolekcji (Supabase).
+  await page.route("**/api/catalog/search", (route) =>
+    route.fulfill({ json: { success: true, data: [], hasMore: false } })
+  );
+
   await page.route(`${SUPABASE}/auth/v1/**`, async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/token")) return route.fulfill({ json: sessionBody() });
