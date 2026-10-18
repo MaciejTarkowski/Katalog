@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { PwaRegister } from "@/components/PwaRegister";
+import { LocaleSync } from "@/components/LocaleSync";
+import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Katalog",
-  description: "Inteligentna aplikacja do katalogowania zbiorów i kolekcji",
+  description: "Smart app for cataloguing your collections",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -43,7 +45,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="pl"
+      lang={DEFAULT_LOCALE}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
@@ -56,6 +58,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-bg text-tx">
         <PwaRegister />
+        <LocaleSync />
         {children}
       </body>
     </html>

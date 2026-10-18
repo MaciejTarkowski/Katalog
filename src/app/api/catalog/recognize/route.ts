@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GeminiUnavailableError, recognizeCover } from "@/lib/recognize/gemini";
 import { mergeRecognition } from "@/lib/recognize/merge";
+import { requestTranslator } from "@/lib/i18n/server";
 
 const DATA_URL_RE = /^data:(image\/[a-z+.-]+);base64,([A-Za-z0-9+/=]+)$/;
 
 export async function POST(req: NextRequest) {
+  const t = requestTranslator(req);
   const body = await req.json().catch(() => null);
   const match = typeof body?.image === "string" ? body.image.match(DATA_URL_RE) : null;
   if (!match) {
     return NextResponse.json(
-      { error: "Prześlij zdjęcie jako data URL (pole 'image')." },
+      { error: t("api.imageRequired") },
       { status: 400 }
     );
   }
@@ -19,15 +21,15 @@ export async function POST(req: NextRequest) {
     recognized = await recognizeCover({ mimeType: match[1], data: match[2] });
   } catch (err: unknown) {
     if (err instanceof GeminiUnavailableError) {
-      return NextResponse.json({ error: err.message, unavailable: true }, { status: 503 });
+      return NextResponse.json({ error: t("api.recognizeUnavailable"), unavailable: true }, { status: 503 });
     }
-    const message = err instanceof Error ? err.message : "Błąd rozpoznawania obrazu.";
+    const message = err instanceof Error ? err.message : t("api.recognizeUnavailable");
     return NextResponse.json({ error: message, unavailable: true }, { status: 503 });
   }
 
   if (!recognized) {
     return NextResponse.json(
-      { error: "Nie udało się rozpoznać okładki." },
+      { error: t("add.notRecognized") },
       { status: 404 }
     );
   }

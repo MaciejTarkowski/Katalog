@@ -3,14 +3,8 @@
 import { useEffect, useState } from "react";
 import { searchCommunityItems } from "@/lib/items/api";
 import type { CommunityItem } from "@/types/database";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  book: "Książka",
-  music: "Muzyka",
-  game: "Gra",
-  comic: "Komiks",
-  other: "Inne",
-};
+import { categoryDef } from "@/lib/items/display";
+import { useI18n } from "@/lib/i18n/locale";
 
 interface CommunitySearchDialogProps {
   initialQuery: string;
@@ -20,6 +14,7 @@ interface CommunitySearchDialogProps {
 
 /** Pop-up search over other users' items, shown when recognition and catalogs find nothing. */
 export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: CommunitySearchDialogProps) {
+  const { t } = useI18n();
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<CommunityItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,16 +69,16 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
         <div className="flex items-start justify-between gap-2">
           <div>
             <h3 id="community-search-title" className="text-sm font-bold text-tx">
-              Szukaj we wpisach innych użytkowników
+              {t("community.title")}
             </h3>
             <p className="text-xs text-mu mt-0.5">
-              Nie udało się rozpoznać okładki. Wpisz tytuł i wybierz istniejący wpis.
+              {t("community.intro")}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Zamknij"
+            aria-label={t("common.close")}
             className="text-mu hover:text-tx text-lg leading-none px-1"
           >
             ×
@@ -93,8 +88,8 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
         <div className="flex gap-2">
           <input
             type="search"
-            aria-label="Tytuł lub twórca"
-            placeholder="Tytuł lub twórca"
+            aria-label={t("community.query")}
+            placeholder={t("community.query")}
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -112,18 +107,18 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
             onClick={() => void runSearch(query)}
             className="px-3 py-2 rounded-xl bg-ac/15 border border-ac/40 text-ac font-medium text-xs transition-all disabled:opacity-50"
           >
-            Szukaj w kolekcjach
+            {t("community.search")}
           </button>
         </div>
 
         <div className="overflow-y-auto -mx-1 px-1">
           {loading ? (
-            <p className="text-xs text-mu py-2">Szukam...</p>
+            <p className="text-xs text-mu py-2">{t("community.searching")}</p>
           ) : error ? (
             <p className="text-xs text-red-400 py-2">{error}</p>
           ) : results && results.length === 0 ? (
             <p className="text-xs text-mu py-2">
-              Brak wpisów dla „{query.trim()}”. Zamknij okno i uzupełnij dane ręcznie.
+              {t("community.none", { query: query.trim() })}
             </p>
           ) : (
             <ul className="flex flex-col gap-1.5">
@@ -148,7 +143,7 @@ export function CommunitySearchDialog({ initialQuery, onSelect, onClose }: Commu
                         <p className="text-xs text-mu truncate">{item.artist_creator}</p>
                       )}
                       <p className="text-[10px] text-mu">
-                        {CATEGORY_LABELS[item.category] || item.category}
+                        {categoryDef(item.category, t).one}
                         {item.subcategory ? ` · ${item.subcategory}` : ""}
                       </p>
                     </div>

@@ -14,7 +14,8 @@ import {
   type ScannedItemData,
 } from "@/lib/scan/pipeline";
 import { preloadImage } from "@/lib/image/preload";
-import { CATEGORIES, type CategoryDef, metaLine, pillStyle, plural, tileBackground, initialOf } from "@/lib/items/display";
+import { type CategoryDef, localizedCategories, metaLine, pillStyle, tileBackground, initialOf } from "@/lib/items/display";
+import { useI18n } from "@/lib/i18n/locale";
 import { Chip, Cover, Icon, Sheet } from "@/components/ui/primitives";
 import { AddItemForm } from "@/components/items/AddItemForm";
 
@@ -58,6 +59,7 @@ function Stage({
   scanKey: number;
   onTap: () => void;
 }) {
+  const { t } = useI18n();
   const idle = phase === "idle";
   const scan = phase === "scanning";
   const found = phase === "found";
@@ -102,7 +104,7 @@ function Stage({
         type="button"
         onClick={idle ? onTap : undefined}
         disabled={!idle}
-        aria-label={idle ? "Zeskanuj okładkę" : found && item ? item.title : "Skanowanie"}
+        aria-label={idle ? t("scan.cover") : found && item ? item.title : t("add.scanning")}
         className="relative overflow-hidden bg-s1 p-0 disabled:cursor-default"
         style={{
           gridArea: "1/1",
@@ -262,7 +264,9 @@ function Stage({
 
 const inCategory = (value: string) => (value === "all" ? undefined : value);
 
-export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreenProps) {
+export function AddScreen({ categories: shownCategories, onAdd, onToast }: AddScreenProps) {
+  const { t } = useI18n();
+  const categories = shownCategories ?? localizedCategories(t);
   const [phase, setPhase] = useState<Phase>("idle");
   const [label, setLabel] = useState("");
   const [item, setItem] = useState<ScannedItemData | null>(null);
@@ -358,7 +362,7 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
       if (data.recognized) completeCover(data);
     } catch (err: unknown) {
       reset();
-      setNotice(err instanceof Error ? err.message : "Nie udało się rozpoznać okładki.");
+      setNotice(err instanceof Error ? err.message : t("add.notRecognized"));
       openText(err instanceof ScanError ? err.query : "");
     }
   };
@@ -452,7 +456,7 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
       const { publicUrl, error } = await uploadCoverImage(coverUrl);
       if (error) {
         setSaving(false);
-        setNotice(`Błąd przesyłania okładki: ${error}`);
+        setNotice(t("form.uploadError", { error }));
         return;
       }
       coverUrl = publicUrl;
@@ -470,14 +474,14 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
       setNotice(addError);
       return;
     }
-    onToast(`Dodano „${target.title}” do kolekcji`);
+    onToast(t("add.added", { title: target.title }));
     setNotice(null);
     reset();
   };
 
   const idle = phase === "idle";
   const found = phase === "found";
-  const prompt = idle ? "Dotknij, aby zeskanować okładkę" : phase === "scanning" ? label : "";
+  const prompt = idle ? t("add.tapToScan") : phase === "scanning" ? label : "";
   const pickedItem = selected !== null ? results[selected] : null;
 
   return (
@@ -528,7 +532,7 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
               className="mt-3.5 flex items-center gap-2 h-[42px] px-[18px] rounded-[21px] bg-white/[.06] border border-s2 text-tx text-sm font-medium"
             >
               <Icon name="keyboard" size={19} />
-              lub wpisz tytuł
+              {t("add.orType")}
             </button>
           )}
           {found && item && (
@@ -536,7 +540,7 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
               <h2 className="text-[26px] font-extrabold tracking-[-.035em] text-center leading-[1.1]">{item.title}</h2>
               {item.artist_creator && <div className="text-[15px] text-mu">{item.artist_creator}</div>}
               <span className="mt-0.5 text-[11px] font-semibold px-[9px] py-[3px] rounded-full border" style={pillStyle(item.category)}>
-                {metaLine(item.category, item.subcategory)}
+                {metaLine(item.category, item.subcategory, t)}
               </span>
               <div className="flex gap-2.5 w-full mt-4">
                 <button
@@ -545,7 +549,7 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
                   className="flex-1 h-[54px] rounded-2xl bg-s1 border border-s2 text-tx text-base font-semibold flex items-center justify-center gap-1.5"
                 >
                   <Icon name="close" size={21} />
-                  Odrzuć
+                  {t("add.reject")}
                 </button>
                 <button
                   type="button"
@@ -554,7 +558,7 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
                   className="flex-[1.5] h-[54px] rounded-2xl bg-ac text-act text-base font-semibold flex items-center justify-center gap-1.5 shadow-[0_14px_30px_-12px_var(--ac)] disabled:opacity-60"
                 >
                   <Icon name="check" size={21} />
-                  {saving ? "Zapisywanie..." : "Dodaj do kolekcji"}
+                  {saving ? t("common.saving") : t("form.submit")}
                 </button>
               </div>
             </>
@@ -562,28 +566,28 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
         </div>
       </div>
 
-      <Sheet open={dialog === "reject"} onClose={() => setDialog(null)} label="Nie ta pozycja?" className="px-5 pb-10 gap-3">
-        <h2 className="text-[22px] font-extrabold tracking-[-.03em] px-1 mt-1">Nie ta pozycja?</h2>
-        <p className="text-sm text-mu -mt-1.5 mb-1.5 px-1">Wybierz, jak chcesz wyszukać ponownie.</p>
-        <SheetOption icon="photo_camera" accent title="Zeskanuj ponownie" sub="Zrób nowe zdjęcie okładki" onClick={pickPhoto} />
-        <SheetOption icon="keyboard" title="Wpisz tytuł" sub="Wyszukaj w katalogach i kolekcjach innych" onClick={() => openText(item?.title ?? "")} />
-        <SheetOption icon="edit_note" title="Uzupełnij ręcznie" sub="Wpisz wszystkie dane samodzielnie" onClick={() => setDialog("manual")} />
+      <Sheet open={dialog === "reject"} onClose={() => setDialog(null)} label={t("add.notThis")} className="px-5 pb-10 gap-3">
+        <h2 className="text-[22px] font-extrabold tracking-[-.03em] px-1 mt-1">{t("add.notThis")}</h2>
+        <p className="text-sm text-mu -mt-1.5 mb-1.5 px-1">{t("add.chooseHow")}</p>
+        <SheetOption icon="photo_camera" accent title={t("add.rescan")} sub={t("add.rescanSub")} onClick={pickPhoto} />
+        <SheetOption icon="keyboard" title={t("add.typeTitle")} sub={t("add.typeTitleSub")} onClick={() => openText(item?.title ?? "")} />
+        <SheetOption icon="edit_note" title={t("add.manual")} sub={t("add.manualSub")} onClick={() => setDialog("manual")} />
         <button type="button" onClick={() => setDialog(null)} className="h-[46px] mt-1 text-mu text-[15px] font-medium">
-          Anuluj
+          {t("common.cancel")}
         </button>
       </Sheet>
 
-      <Sheet open={dialog === "text"} onClose={() => setDialog(null)} label="Wyszukaj tytuł" full>
+      <Sheet open={dialog === "text"} onClose={() => setDialog(null)} label={t("add.searchTitle")} full>
         <div className="px-5 pb-3 flex flex-col gap-3">
           <div className="flex items-start justify-between gap-2.5">
             <div>
-              <h2 className="text-[22px] font-extrabold tracking-[-.03em]">Wyszukaj tytuł</h2>
-              <p className="text-[13.5px] text-mu mt-[3px]">Wpisz tytuł i wybierz istniejący wpis.</p>
+              <h2 className="text-[22px] font-extrabold tracking-[-.03em]">{t("add.searchTitle")}</h2>
+              <p className="text-[13.5px] text-mu mt-[3px]">{t("add.searchIntro")}</p>
             </div>
             <button
               type="button"
               onClick={() => setDialog(null)}
-              aria-label="Zamknij"
+              aria-label={t("common.close")}
               className="w-[34px] h-[34px] flex-none rounded-full bg-s2 text-tx flex items-center justify-center p-0"
             >
               <Icon name="close" size={20} />
@@ -593,16 +597,16 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
             <Icon name="search" className="text-mu" />
             <input
               type="search"
-              aria-label="Tytuł lub twórca"
+              aria-label={t("community.query")}
               value={query}
               onChange={(e) => search(e.target.value)}
-              placeholder="Tytuł lub twórca"
+              placeholder={t("community.query")}
               className="flex-1 min-w-0 bg-transparent border-none outline-none text-tx text-base"
             />
           </div>
-          <div role="tablist" aria-label="Kategoria wyszukiwania" className="flex gap-2 overflow-x-auto scrollbar-none">
+          <div role="tablist" aria-label={t("add.searchCategory")} className="flex gap-2 overflow-x-auto scrollbar-none">
             <Chip role="tab" active={searchCategory === "all"} onClick={() => pickSearchCategory("all")}>
-              Wszystkie
+              {t("common.all")}
             </Chip>
             {categories.map((c) => (
               <Chip key={c.value} role="tab" active={searchCategory === c.value} onClick={() => pickSearchCategory(c.value)}>
@@ -612,10 +616,10 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
           </div>
           <div className="text-[12.5px] text-mu">
             {searching
-              ? "Szukam..."
+              ? t("community.searching")
               : query.trim()
-                ? `${results.length} ${plural(results.length, ["wpis", "wpisy", "wpisów"])} w katalogach i kolekcjach`
-                : "Wpisz co najmniej kilka liter"}
+                ? t("add.entries", { count: results.length })
+                : t("add.typeMore")}
           </div>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-none px-5 pb-[120px] flex flex-col gap-2">
@@ -634,7 +638,7 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
                 <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                   <span className="text-[15px] font-semibold truncate">{r.title}</span>
                   {r.artist_creator && <span className="text-[13px] text-mu truncate">{r.artist_creator}</span>}
-                  <span className="text-[11.5px] text-mu opacity-75">{metaLine(r.category, r.subcategory)}</span>
+                  <span className="text-[11.5px] text-mu opacity-75">{metaLine(r.category, r.subcategory, t)}</span>
                 </span>
                 <span
                   className="w-[26px] h-[26px] flex-none rounded-full flex items-center justify-center border-[1.5px] text-act"
@@ -647,17 +651,17 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
           })}
           {hasMore && (
             <div ref={sentinelRef} className="flex-none py-3 text-center text-[12.5px] text-mu">
-              {loadingMore ? "Ładuję więcej..." : ""}
+              {loadingMore ? t("add.loadingMore") : ""}
             </div>
           )}
         </div>
         <div className="absolute left-0 right-0 bottom-0 px-5 pt-4 pb-[max(34px,env(safe-area-inset-bottom))] flex items-center justify-between gap-3 bg-[linear-gradient(180deg,transparent,var(--s1)_40%)]">
-          <div className="text-[13.5px] text-mu flex-1">{pickedItem ? `Wybrano: ${pickedItem.title}` : "Wybierz pozycję z listy"}</div>
+          <div className="text-[13.5px] text-mu flex-1">{pickedItem ? t("add.picked", { title: pickedItem.title }) : t("add.pickFromList")}</div>
           <button
             type="button"
             onClick={confirmPick}
             disabled={!pickedItem}
-            aria-label="Dodaj wybraną pozycję"
+            aria-label={t("add.addSelected")}
             className="w-16 h-16 flex-none rounded-full gradient-ac text-act flex items-center justify-center p-0 transition-all duration-300 shadow-[0_14px_30px_-10px_var(--ac)]"
             style={{ opacity: pickedItem ? 1 : 0.35, transform: `scale(${pickedItem ? 1 : 0.9})` }}
           >
@@ -666,7 +670,7 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
         </div>
       </Sheet>
 
-      <Sheet open={dialog === "manual"} onClose={() => setDialog(null)} label="Uzupełnij ręcznie" full>
+      <Sheet open={dialog === "manual"} onClose={() => setDialog(null)} label={t("add.manual")} full>
         <div className="flex-1 overflow-y-auto scrollbar-none px-5 pb-10">
           {dialog === "manual" && (
             <AddItemForm
@@ -674,7 +678,7 @@ export function AddScreen({ categories = CATEGORIES, onAdd, onToast }: AddScreen
               onSubmit={async (data) => {
                 const addError = await onAdd(data);
                 if (!addError) {
-                  onToast(`Dodano „${data.title}” do kolekcji`);
+                  onToast(t("add.added", { title: data.title }));
                   setDialog(null);
                   reset();
                 }

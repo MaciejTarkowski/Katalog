@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
         collection_types IS NULL
         OR (cardinality(collection_types) > 0 AND collection_types <@ ARRAY['book', 'music', 'game', 'comic'])
     ),
+    -- Język interfejsu wybrany przez użytkownika (NULL = wybór z urządzenia, domyślnie angielski).
+    language TEXT CHECK (language IN ('en', 'pl', 'de')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );

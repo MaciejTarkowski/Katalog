@@ -31,4 +31,6 @@ export interface Profile {
   display_name: string | null;
   /** Item categories the user keeps in the catalog; null = not chosen yet (asked on first login). */
   collection_types?: string[] | null;
+  /** UI language picked by the user ("en" | "pl" | "de"); null = not picked, the device's choice applies. */
+  language?: string | null;
 }

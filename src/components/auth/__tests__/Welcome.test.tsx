@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Welcome } from "../Welcome";
 
@@ -28,5 +28,21 @@ describe("Welcome mosaic", () => {
       const hosts = new Set(Array.from(col.querySelectorAll("img")).map((img) => new URL(img.src).host));
       expect(hosts.size).toBeGreaterThan(1);
     }
+  });
+});
+
+describe("Welcome language", () => {
+  beforeEach(() => sessionStorage.setItem("katalog-intro-seen", "1"));
+
+  it("switches the language before signing in", () => {
+    render(<Welcome />);
+    expect(screen.getByRole("button", { name: "Polski" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
+    expect(screen.getByRole("heading", { name: "Your whole collection. On one screen." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+    expect(screen.getByRole("button", { name: "Anmelden" })).toBeInTheDocument();
   });
 });

@@ -77,7 +77,7 @@ describe("CoverScanner", () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith("/api/catalog/lookup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-locale": "pl" },
         body: JSON.stringify({ ean: "9780261102217" }),
       });
       expect(onScanComplete).toHaveBeenCalledWith({
@@ -141,7 +141,7 @@ describe("CoverScanner", () => {
     });
     expect(global.fetch).toHaveBeenCalledWith("/api/catalog/recognize", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-locale": "pl" },
       body: JSON.stringify({ image: "data:image/jpeg;base64,mockCompressedBase64" }),
     });
     expect(recognizeCoverText).not.toHaveBeenCalled();
@@ -236,7 +236,7 @@ describe("CoverScanner", () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenLastCalledWith("/api/catalog/lookup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-locale": "pl" },
         body: JSON.stringify({ query: "Spider-Man" }),
       });
       expect(onScanComplete).toHaveBeenCalledWith(

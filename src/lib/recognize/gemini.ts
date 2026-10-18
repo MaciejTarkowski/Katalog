@@ -13,7 +13,7 @@ export interface RecognizedCover {
 
 /** Every model was overloaded / rate-limited / unreachable — caller should fall back. */
 export class GeminiUnavailableError extends Error {
-  constructor(message = "Usługa rozpoznawania obrazu jest chwilowo niedostępna.") {
+  constructor(message = "Image recognition is temporarily unavailable.") {
     super(message);
     this.name = "GeminiUnavailableError";
   }
@@ -173,7 +173,7 @@ export async function recognizeCover(
   options: { retryDelayMs?: number } = {}
 ): Promise<RecognizedCover | null> {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new GeminiUnavailableError("Brak klucza GEMINI_API_KEY.");
+  if (!key) throw new GeminiUnavailableError("GEMINI_API_KEY is not set.");
   const retryDelayMs = options.retryDelayMs ?? 1000;
 
   for (const model of configuredModels()) {

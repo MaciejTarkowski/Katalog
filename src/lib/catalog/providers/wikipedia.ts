@@ -1,5 +1,6 @@
 import { catalogFetch, readJson } from "../http";
 import { normalizeForMatch } from "../normalize";
+import type { Locale } from "@/lib/i18n/config";
 
 export interface DescriptionQuery {
   title: string;
@@ -38,11 +39,21 @@ const KIND_EN: Kinds = {
   comic: /\bcomic|\bmanga|\bseries/,
 };
 
-/** Polish first; English only when Polish Wikipedia has no matching article. */
-const WIKIS: Array<{ host: string; kinds: Kinds }> = [
-  { host: "pl.wikipedia.org", kinds: KIND_PL },
-  { host: "en.wikipedia.org", kinds: KIND_EN },
-];
+const KIND_DE: Kinds = {
+  game: /\bspiel|\bvideospiel|\bcomputerspiel/,
+  music: /\balbum|\bsingle|\bep\b|\blied/,
+  book: /\broman|\bbuch|\berzahlung|\bsammlung|\breihe/,
+  comic: /\bcomic|\bmanga|\breihe|\bserie/,
+};
+
+/** Keywords per UI language; a new language without its own list matches by title and creator only. */
+const KINDS: Record<Locale, Kinds> = { pl: KIND_PL, en: KIND_EN, de: KIND_DE };
+
+/** Wikipedia in the UI language first; English only when it has no matching article. */
+function wikisFor(locale: Locale): Array<{ host: string; kinds: Kinds }> {
+  const langs = locale === "en" ? ["en" as const] : [locale, "en" as const];
+  return langs.map((lang) => ({ host: `${lang}.wikipedia.org`, kinds: KINDS[lang] ?? {} }));
+}
 
 function splitTitle(title: string): { base: string; note: string | null } {
   const match = title.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
@@ -79,10 +90,13 @@ function isMatch(page: WikipediaPage, query: DescriptionQuery, kinds: Kinds): bo
   return query.creator ? mentionsCreator(page.extract, query.creator) : aboutKind(page.extract, kinds, query.category);
 }
 
-/** Short description from the intro of the matching Wikipedia article: Polish, else English. */
-export async function findWikipediaDescription(query: DescriptionQuery): Promise<WikipediaDescription | null> {
+/** Short description from the intro of the matching Wikipedia article: in the UI language, else English. */
+export async function findWikipediaDescription(
+  query: DescriptionQuery,
+  locale: Locale
+): Promise<WikipediaDescription | null> {
   try {
-    for (const { host, kinds } of WIKIS) {
+    for (const { host, kinds } of wikisFor(locale)) {
       const found = await searchWiki(host, kinds, query);
       if (found) return found;
     }

@@ -1,3 +1,5 @@
+import { t } from "@/lib/i18n/locale";
+
 export interface CompressOptions {
   maxWidth?: number;
   maxHeight?: number;
@@ -21,12 +23,12 @@ export async function compressImage(
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onerror = () => reject(new Error("Nie udało się odczytać pliku obrazu."));
+    reader.onerror = () => reject(new Error(t("image.readError")));
 
     reader.onload = () => {
       const img = new Image();
 
-      img.onerror = () => reject(new Error("Nie udało się załadować obrazu do przetworzenia."));
+      img.onerror = () => reject(new Error(t("image.loadError")));
 
       img.onload = () => {
         let width = img.width;
@@ -44,7 +46,7 @@ export async function compressImage(
 
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          reject(new Error("Nie udało się utworzyć kontekstu canvas 2D."));
+          reject(new Error(t("image.canvasError")));
           return;
         }
 

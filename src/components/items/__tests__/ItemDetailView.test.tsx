@@ -107,7 +107,12 @@ describe("ItemDetailView", () => {
     it("shows a saved description with a link to its Wikipedia source, without looking it up again", async () => {
       const item = {
         ...DIUNA,
-        metadata: { year: "1965", description: "Diuna – powieść Franka Herberta.", description_url: "https://pl.wikipedia.org/wiki/Diuna_(powie%C5%9B%C4%87)" },
+        metadata: {
+          year: "1965",
+          description: "Diuna – powieść Franka Herberta.",
+          description_url: "https://pl.wikipedia.org/wiki/Diuna_(powie%C5%9B%C4%87)",
+          description_lang: "pl",
+        },
       };
       render(<ItemDetailView item={item} />);
 
@@ -129,7 +134,24 @@ describe("ItemDetailView", () => {
       expect(mockDescription).toHaveBeenCalledWith(DIUNA);
       expect(onItemChange).toHaveBeenCalledWith({
         ...DIUNA,
-        metadata: { year: "1965", description: "Diuna – powieść.", description_url: "https://pl.wikipedia.org/wiki/Diuna" },
+        metadata: { year: "1965", description: "Diuna – powieść.", description_url: "https://pl.wikipedia.org/wiki/Diuna", description_lang: "pl" },
+      });
+    });
+
+    it("looks a description saved in another language up again in the current one", async () => {
+      mockDescription.mockResolvedValue({ description: "Diuna – powieść.", url: "https://pl.wikipedia.org/wiki/Diuna" });
+      const onItemChange = vi.fn();
+      const item = {
+        ...DIUNA,
+        metadata: { description: "Dune is a novel.", description_url: "https://en.wikipedia.org/wiki/Dune", description_lang: "en" },
+      };
+      render(<ItemDetailView item={item} onItemChange={onItemChange} />);
+
+      expect(await screen.findByText("Diuna – powieść.")).toBeInTheDocument();
+      expect(screen.queryByText("Dune is a novel.")).not.toBeInTheDocument();
+      expect(onItemChange).toHaveBeenCalledWith({
+        ...item,
+        metadata: { description: "Diuna – powieść.", description_url: "https://pl.wikipedia.org/wiki/Diuna", description_lang: "pl" },
       });
     });
 
@@ -152,7 +174,7 @@ describe("ItemDetailView", () => {
       expect(await screen.findByText("1-2-Switch is a party game.")).toBeInTheDocument();
       expect(onItemChange).toHaveBeenCalledWith({
         ...item,
-        metadata: { description: "1-2-Switch is a party game.", description_url: "https://en.wikipedia.org/wiki/1-2-Switch" },
+        metadata: { description: "1-2-Switch is a party game.", description_url: "https://en.wikipedia.org/wiki/1-2-Switch", description_lang: "pl" },
       });
     });
 

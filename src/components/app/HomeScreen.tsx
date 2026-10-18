@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Item } from "@/types/database";
-import { CATEGORIES, OTHER_CATEGORY, addedAgo, categoryDef } from "@/lib/items/display";
+import { addedAgo, categoryDef, isKnownCategory, localizedCategories, otherCategory } from "@/lib/items/display";
 import { Cover, Icon, Logo, SectionLoader } from "@/components/ui/primitives";
 import { useImagesReady } from "@/lib/image/useImagesReady";
+import { useI18n } from "@/lib/i18n/locale";
 
 interface HomeScreenProps {
   items: Item[];
@@ -45,17 +46,19 @@ export function RowCard({ item, onOpen, width = 116 }: { item: Item; onOpen: (it
 }
 
 export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, onAdd }: HomeScreenProps) {
+  const i18n = useI18n();
+  const { t } = i18n;
   const [heroIdx, setHeroIdx] = useState(0);
   const heroRef = useRef<HTMLDivElement>(null);
 
   const hero = items.filter((i) => i.cover_url).slice(0, HERO_COUNT);
-  const hasOther = items.some((i) => !CATEGORIES.some((c) => c.value === i.category));
-  const tabs = hasOther ? [...CATEGORIES, OTHER_CATEGORY] : CATEGORIES;
+  const hasOther = items.some((i) => !isKnownCategory(i.category));
+  const tabs = hasOther ? [...localizedCategories(t), otherCategory(t)] : localizedCategories(t);
   const rows = tabs
     .map((c) => ({
       ...c,
       items: items.filter((i) =>
-        c.value === "other" ? !CATEGORIES.some((k) => k.value === i.category) : i.category === c.value
+        c.value === "other" ? !isKnownCategory(i.category) : i.category === c.value
       ),
     }))
     .filter((r) => r.items.length > 0);
@@ -164,7 +167,7 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
           <button
             type="button"
             onClick={onProfile}
-            aria-label="Otwórz profil"
+            aria-label={t("home.openProfile")}
             className="w-[34px] h-[34px] rounded-full border-[1.5px] border-white/25 bg-s2 text-tx text-sm font-bold"
           >
             {userInitial}
@@ -207,14 +210,14 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
                     <Cover title={h.title} seed={h.id} src={h.cover_url} letterSize={84} style={{ width: 204, height: 306 }} />
                   </button>
                   <div className="flex items-center gap-2 mt-2.5">
-                    <span className="text-[10.5px] font-bold tracking-[.14em] px-2 py-1 rounded-md bg-ac text-act">NOWOŚĆ</span>
-                    <span className="text-[12.5px] text-mu">Dodano {addedAgo(h.created_at)}</span>
+                    <span className="text-[10.5px] font-bold tracking-[.14em] px-2 py-1 rounded-md bg-ac text-act">{t("home.new")}</span>
+                    <span className="text-[12.5px] text-mu">{t("home.added", { when: addedAgo(h.created_at, i18n) })}</span>
                   </div>
                   <div className="text-[28px] font-extrabold tracking-[-.035em] text-center px-7 leading-[1.08] text-balance">
                     {h.title}
                   </div>
                   <div className="text-sm text-mu">
-                    {[h.artist_creator, categoryDef(h.category).one].filter(Boolean).join(" · ")}
+                    {[h.artist_creator, categoryDef(h.category, t).one].filter(Boolean).join(" · ")}
                   </div>
                 </div>
               ))}
@@ -225,7 +228,7 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
                   <button
                     key={h.id}
                     type="button"
-                    aria-label={`Nowość ${i + 1}`}
+                    aria-label={t("home.newSlide", { n: i + 1 })}
                     onClick={() => scrollHeroTo(i)}
                     className="h-1.5 rounded-[3px] p-0 transition-all duration-300"
                     style={{ width: i === heroIdx ? 22 : 6, background: i === heroIdx ? "var(--ac)" : "var(--s2)" }}
@@ -240,15 +243,15 @@ export function HomeScreen({ items, isLoading, userInitial, onOpen, onProfile, o
           <SectionLoader className="mt-6" />
         ) : rows.length === 0 ? (
           <div className="mx-5 mt-6 px-5 py-11 rounded-[18px] bg-s1 border border-s2 text-center">
-            <p className="text-[15px] font-semibold">Pusta kolekcja</p>
-            <p className="text-[13px] text-mu mt-1">Zeskanuj pierwszą okładkę, a pojawi się tutaj.</p>
+            <p className="text-[15px] font-semibold">{t("home.empty.title")}</p>
+            <p className="text-[13px] text-mu mt-1">{t("home.empty.text")}</p>
             <button
               type="button"
               onClick={onAdd}
               className="mt-5 inline-flex items-center gap-2 h-11 px-5 rounded-full bg-ac text-act font-semibold text-[15px]"
             >
               <Icon name="add" size={20} />
-              Dodaj pozycję
+              {t("home.empty.add")}
             </button>
           </div>
         ) : (

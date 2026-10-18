@@ -3,6 +3,7 @@ import { lookupCatalogItem } from "@/lib/catalog/lookup";
 import { isCatalogCategory } from "@/lib/catalog/types";
 import type { RecognizedCover } from "@/lib/recognize/gemini";
 import { mergeRecognition } from "@/lib/recognize/merge";
+import { requestTranslator } from "@/lib/i18n/server";
 
 const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
 
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   const raw = body?.recognized;
   const title = text(raw?.title);
   if (!title) {
-    return NextResponse.json({ error: "Brak rozpoznanego tytułu (pole 'recognized')." }, { status: 400 });
+    return NextResponse.json({ error: requestTranslator(req)("api.recognizedRequired") }, { status: 400 });
   }
 
   const recognized: RecognizedCover = {

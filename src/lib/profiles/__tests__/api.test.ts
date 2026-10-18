@@ -14,7 +14,7 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
-import { ensureProfile, fetchProfile, nameFromMetadata, updateCollectionTypes, updateDisplayName } from "../api";
+import { ensureProfile, fetchProfile, nameFromMetadata, updateCollectionTypes, updateDisplayName, updateLanguage } from "../api";
 
 describe("Profiles API", () => {
   beforeEach(() => {
@@ -25,7 +25,7 @@ describe("Profiles API", () => {
     mockMaybeSingle.mockResolvedValue({ data: { id: "u1", display_name: "Maciek" }, error: null });
     const result = await fetchProfile("u1");
     expect(mockFrom).toHaveBeenCalledWith("profiles");
-    expect(mockSelect).toHaveBeenCalledWith("id, display_name, collection_types");
+    expect(mockSelect).toHaveBeenCalledWith("id, display_name, collection_types, language");
     expect(mockEq).toHaveBeenCalledWith("id", "u1");
     expect(result).toEqual({ data: { id: "u1", display_name: "Maciek" }, error: null });
   });
@@ -144,6 +144,13 @@ describe("Profiles API", () => {
     expect((await updateCollectionTypes([])).success).toBe(false);
     expect((await updateCollectionTypes(["vinyl"])).success).toBe(false);
     expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("updateLanguage saves the UI language for the current user", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    mockUpsert.mockResolvedValue({ error: null });
+    expect(await updateLanguage("de")).toEqual({ success: true, error: null });
+    expect(mockUpsert).toHaveBeenCalledWith({ id: "u1", language: "de" });
   });
 
   it("updateCollectionTypes requires a logged-in user", async () => {

@@ -5,7 +5,9 @@ import Link from "next/link";
 import { Item } from "@/types/database";
 import { fetchItemById } from "@/lib/items/api";
 import { fetchItemDescription, type ItemDescription } from "@/lib/items/description";
-import { categoryDef, pillStyle, tileBackground } from "@/lib/items/display";
+import { categoryDef, formatDate, pillStyle, tileBackground } from "@/lib/items/display";
+import { useI18n } from "@/lib/i18n/locale";
+import type { MessageKey, Translate } from "@/lib/i18n/translate";
 import { Cover, Icon } from "@/components/ui/primitives";
 
 interface ItemDetailViewProps {
@@ -23,21 +25,21 @@ interface ItemDetailViewProps {
   onItemChange?: (item: Item) => void;
 }
 
-const METADATA_LABELS: Record<string, string> = {
-  year: "Rok",
-  publisher: "Wydawca",
-  isbn: "ISBN",
-  barcode: "Kod kreskowy",
-  genre: "Gatunek",
-  platform: "Platforma",
-  label: "Wytwórnia",
-  format: "Format",
-  country: "Kraj",
-  pages: "Liczba stron",
+const METADATA_LABELS: Record<string, MessageKey> = {
+  year: "meta.year",
+  publisher: "meta.publisher",
+  isbn: "meta.isbn",
+  barcode: "meta.barcode",
+  genre: "meta.genre",
+  platform: "meta.platform",
+  label: "meta.label",
+  format: "meta.format",
+  country: "meta.country",
+  pages: "meta.pages",
 };
 
 /** Readable metadata rows: primitives (and string lists) only, no technical ids or source. */
-function metadataRows(metadata: Record<string, unknown>): Array<[string, string]> {
+function metadataRows(metadata: Record<string, unknown>, t: Translate): Array<[string, string]> {
   return Object.entries(metadata || {}).flatMap(([key, value]): Array<[string, string]> => {
     if (key.endsWith("_id") || key === "source" || key.startsWith("description")) return [];
     const text = Array.isArray(value)
@@ -46,7 +48,7 @@ function metadataRows(metadata: Record<string, unknown>): Array<[string, string]
         ? String(value)
         : "";
     if (!text) return [];
-    return [[METADATA_LABELS[key] || key, text]];
+    return [[METADATA_LABELS[key] ? t(METADATA_LABELS[key]) : key, text]];
   });
 }
 
@@ -170,6 +172,7 @@ export function ItemDetailView({
   onOpen,
   onItemChange,
 }: ItemDetailViewProps) {
+  const { locale, t } = useI18n();
   const [fetched, setFetched] = useState<Item | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [shown, setShown] = useState(false);
@@ -178,6 +181,8 @@ export function ItemDetailView({
   // Only a non-empty string is a known description; "" (saved by older versions) is looked up again.
   const savedDescription =
     typeof item?.metadata?.description === "string" && item.metadata.description ? item.metadata.description : undefined;
+  // A description saved for another UI language (or before languages existed) is looked up again in this one.
+  const descriptionCurrent = savedDescription !== undefined && item?.metadata?.description_lang === locale;
   const onItemChangeRef = useRef(onItemChange);
   useEffect(() => {
     onItemChangeRef.current = onItemChange;
@@ -185,7 +190,7 @@ export function ItemDetailView({
 
   // Items without a description look it up on open; only a found one is saved, so "none" is retried next time.
   useEffect(() => {
-    if (!item || savedDescription !== undefined) return;
+    if (!item || descriptionCurrent) return;
     let cancelled = false;
     fetchItemDescription(item).then((found) => {
       if (cancelled || found === undefined) return;
@@ -193,18 +198,18 @@ export function ItemDetailView({
       if (!found) return;
       onItemChangeRef.current?.({
         ...item,
-        metadata: { ...item.metadata, description: found.description, description_url: found.url },
+        metadata: { ...item.metadata, description: found.description, description_url: found.url, description_lang: locale },
       });
     });
     return () => {
       cancelled = true;
     };
-  }, [item, savedDescription]);
+  }, [item, descriptionCurrent, locale]);
 
   const found = lookedUp && lookedUp.id === item?.id ? lookedUp.found : null;
-  const description = savedDescription || found?.description || "";
+  const description = found?.description || savedDescription || "";
   const descriptionUrl =
-    (typeof item?.metadata?.description_url === "string" ? item.metadata.description_url : "") || found?.url || "";
+    found?.url || (typeof item?.metadata?.description_url === "string" ? item.metadata.description_url : "");
 
   useEffect(() => {
     if (givenItem || !itemId) return;
@@ -221,19 +226,19 @@ export function ItemDetailView({
 
   useEffect(() => {
     if (!item) return;
-    const t = setTimeout(() => setShown(true), 30);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShown(true), 30);
+    return () => clearTimeout(timer);
   }, [item]);
 
   const backClass =
     "fixed top-[max(16px,env(safe-area-inset-top))] left-4 z-[26] w-[42px] h-[42px] rounded-full border border-white/10 bg-black/35 backdrop-blur-[14px] text-white flex items-center justify-center p-0";
   const backIcon = <Icon name="arrow_back_ios" size={20} style={{ marginLeft: 5 }} />;
   const backButton = onBack ? (
-    <button type="button" onClick={onBack} aria-label="Wróć do kolekcji" className={backClass}>
+    <button type="button" onClick={onBack} aria-label={t("detail.back")} className={backClass}>
       {backIcon}
     </button>
   ) : (
-    <Link href={fromShare && item ? `/share/${item.user_id}` : "/"} aria-label="Wróć do kolekcji" className={backClass}>
+    <Link href={fromShare && item ? `/share/${item.user_id}` : "/"} aria-label={t("detail.back")} className={backClass}>
       {backIcon}
     </Link>
   );
@@ -253,13 +258,13 @@ export function ItemDetailView({
     return (
       <div className="w-full">
         {backButton}
-        <p className="text-sm text-mu py-24 text-center">Ładowanie elementu...</p>
+        <p className="text-sm text-mu py-24 text-center">{t("detail.loading")}</p>
       </div>
     );
   }
 
-  const cat = categoryDef(item.category);
-  const rows = metadataRows(item.metadata);
+  const cat = categoryDef(item.category, t);
+  const rows = metadataRows(item.metadata, t);
   const fade = (delay: number): React.CSSProperties => ({
     opacity: shown ? 1 : 0,
     transform: `translateY(${shown ? 0 : 18}px)`,
@@ -289,11 +294,11 @@ export function ItemDetailView({
             <button
               type="button"
               onClick={() => onDelete(item)}
-              aria-label={`Usuń ${item.title}`}
+              aria-label={t("detail.deleteLabel", { title: item.title })}
               className="flex-1 h-[50px] rounded-[15px] bg-rose-400/[.08] border border-rose-400/25 text-rose-400 text-[15px] font-semibold flex items-center justify-center gap-[7px]"
             >
               <Icon name="delete" size={20} />
-              Usuń
+              {t("detail.delete")}
             </button>
           </div>
         )}
@@ -302,7 +307,7 @@ export function ItemDetailView({
       <div className="relative mx-5 mt-7" style={fade(0.42)}>
         {description && (
           <section className="mb-7" style={{ animation: "kToastIn .5s both" }}>
-            <h2 className="text-lg font-bold tracking-[-.02em] mb-2.5">Opis</h2>
+            <h2 className="text-lg font-bold tracking-[-.02em] mb-2.5">{t("detail.description")}</h2>
             <p className="text-[14.5px] leading-[1.55] text-tx/90 whitespace-pre-line">{description}</p>
             {descriptionUrl && (
               <a
@@ -311,14 +316,14 @@ export function ItemDetailView({
                 rel="noopener noreferrer"
                 className="inline-block mt-2 text-xs text-mu underline underline-offset-2"
               >
-                Źródło: Wikipedia
+                {t("detail.source")}
               </a>
             )}
           </section>
         )}
         {rows.length > 0 && (
           <>
-            <h2 className="text-lg font-bold tracking-[-.02em] mb-2.5">Szczegóły</h2>
+            <h2 className="text-lg font-bold tracking-[-.02em] mb-2.5">{t("detail.details")}</h2>
             <dl className="flex flex-col gap-px bg-s2 rounded-[18px] overflow-hidden border border-s2">
               {rows.map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-4 px-4 py-[13px] bg-s1 text-sm">
@@ -329,12 +334,12 @@ export function ItemDetailView({
             </dl>
           </>
         )}
-        <p className="text-xs text-mu mt-2.5 px-1">Dodano: {new Date(item.created_at).toLocaleDateString("pl-PL")}</p>
+        <p className="text-xs text-mu mt-2.5 px-1">{t("detail.added", { date: formatDate(item.created_at, locale) })}</p>
       </div>
 
       {similar && similar.length > 0 && onOpen && (
-        <section aria-label="Więcej" className="relative mt-[30px]" style={{ opacity: shown ? 1 : 0, transition: "opacity .5s .55s" }}>
-          <h2 className="px-5 text-lg font-bold tracking-[-.02em]">Więcej: {cat.label.toLowerCase()}</h2>
+        <section aria-label={t("detail.more")} className="relative mt-[30px]" style={{ opacity: shown ? 1 : 0, transition: "opacity .5s .55s" }}>
+          <h2 className="px-5 text-lg font-bold tracking-[-.02em]">{t("detail.moreOf", { category: cat.label.toLowerCase() })}</h2>
           <div className="flex gap-3 overflow-x-auto scrollbar-none px-5 pt-3 pb-1">
             {similar.map((it) => (
               <button key={it.id} type="button" onClick={() => onOpen(it)} className="flex-none w-[104px] flex flex-col gap-1.5 text-left">

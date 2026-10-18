@@ -5,7 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { Item } from "@/types/database";
 import { fetchItems, addItem, deleteItem, updateItemMetadata } from "@/lib/items/api";
-import { ensureProfile, nameFromMetadata, updateCollectionTypes } from "@/lib/profiles/api";
+import { ensureProfile, nameFromMetadata, updateCollectionTypes, updateLanguage } from "@/lib/profiles/api";
 import { CATEGORIES, filterByTypes, initialOf, visibleCategories } from "@/lib/items/display";
 import { Welcome } from "@/components/auth/Welcome";
 import { ItemDetailView } from "@/components/items/ItemDetailView";
@@ -17,8 +17,11 @@ import { ProfileScreen } from "@/components/app/ProfileScreen";
 import { TabBar, type Tab } from "@/components/app/TabBar";
 import { CollectionTypesPicker } from "@/components/app/CollectionTypesPicker";
 import { Toast } from "@/components/ui/primitives";
+import { setLocale, useI18n } from "@/lib/i18n/locale";
+import { isLocale, type Locale } from "@/lib/i18n/config";
 
 export function Dashboard() {
+  const { t } = useI18n();
   const [user, setUser] = useState<User | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [items, setItems] = useState<Item[]>([]);
@@ -91,6 +94,8 @@ export function Dashboard() {
       if (cancelled) return;
       setDisplayName(data?.display_name || "");
       setTypes(data?.collection_types);
+      // The language saved in the profile follows the user to every device.
+      if (isLocale(data?.language)) setLocale(data.language);
     });
     return () => {
       cancelled = true;
@@ -112,10 +117,15 @@ export function Dashboard() {
     setDetail(null);
   };
 
+  const handleLanguageChange = (locale: Locale) => {
+    setLocale(locale);
+    void updateLanguage(locale);
+  };
+
   /** Returns null on success, or the error message to show the user. */
   const handleSaveTypes = async (next: string[]): Promise<string | null> => {
     const { success, error } = await updateCollectionTypes(next);
-    if (!success) return error || "Nie udało się zapisać typów.";
+    if (!success) return error || t("types.saveFailed");
     setTypes(next);
     setEditingTypes(false);
     return null;
@@ -125,7 +135,7 @@ export function Dashboard() {
   const handleAddItem = async (item: NewItem): Promise<string | null> => {
     const { data, error } = await addItem(item);
     if (error || !data) {
-      return error || "Nie udało się zapisać elementu.";
+      return error || t("dashboard.saveFailed");
     }
     setItems((prev) => [data, ...prev]);
     return null;
@@ -136,7 +146,7 @@ export function Dashboard() {
     if (success) {
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       setDetail(null);
-      showToast(`Usunięto „${item.title}”`);
+      showToast(t("dashboard.deleted", { title: item.title }));
     }
   };
 
@@ -156,7 +166,7 @@ export function Dashboard() {
     return (
       <div className="flex flex-col items-center justify-center min-h-dvh gap-3">
         <div className="w-8 h-8 rounded-full border-2 border-ac border-t-transparent animate-spin" />
-        <p className="text-xs text-mu">Ładowanie profilu...</p>
+        <p className="text-xs text-mu">{t("dashboard.loadingProfile")}</p>
       </div>
     );
   }
@@ -184,7 +194,7 @@ export function Dashboard() {
     // First login: preselect what is already in the collection.
     const initial =
       types ??
-      CATEGORIES.map((c) => c.value).filter((v) => !firstChoice || items.some((i) => i.category === v));
+      CATEGORIES.map((c) => c.value as string).filter((v) => !firstChoice || items.some((i) => i.category === v));
     return (
       <>
         <CollectionTypesPicker
@@ -199,7 +209,7 @@ export function Dashboard() {
 
   // Items of unchosen types stay in the database, they are only hidden.
   const shownItems = filterByTypes(items, types);
-  const categories = visibleCategories(types);
+  const categories = visibleCategories(types, t);
 
   return (
     <div className="relative w-full max-w-[480px] mx-auto min-h-dvh">
@@ -237,6 +247,7 @@ export function Dashboard() {
           onNameSaved={setDisplayName}
           onSignOut={handleSignOut}
           onEditTypes={() => setEditingTypes(true)}
+          onLanguageChange={handleLanguageChange}
           onToast={showToast}
         />
       )}

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { ItemInsert } from "@/types/database";
 import { CoverScanner, ScannedItemData } from "./CoverScanner";
 import { uploadCoverImage } from "@/lib/storage/upload";
+import { useI18n } from "@/lib/i18n/locale";
+import type { MessageKey } from "@/lib/i18n/translate";
 
 interface AddItemFormProps {
   /** Resolves to null on success, or the error message to show. */
@@ -15,15 +17,16 @@ interface AddItemFormProps {
   types?: string[];
 }
 
-const CATEGORIES = [
-  { value: "book", label: "Książka" },
-  { value: "music", label: "Muzyka" },
-  { value: "game", label: "Gra wideo" },
-  { value: "comic", label: "Komiks" },
-  { value: "other", label: "Inne" },
+const CATEGORIES: Array<{ value: string; label: MessageKey }> = [
+  { value: "book", label: "form.cat.book" },
+  { value: "music", label: "form.cat.music" },
+  { value: "game", label: "form.cat.game" },
+  { value: "comic", label: "form.cat.comic" },
+  { value: "other", label: "category.other" },
 ];
 
 export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
+  const { t } = useI18n();
   const categories = CATEGORIES.filter((c) => c.value === "other" || !types || types.includes(c.value));
   const [title, setTitle] = useState("");
   const [artistCreator, setArtistCreator] = useState("");
@@ -46,13 +49,13 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
     } else if (data.previewUrl && !coverUrl) {
       setCoverUrl(data.previewUrl);
     }
-    setAiSuccessMsg("Pomyślnie dociągnięto dane z darmowych baz katalogowych!");
+    setAiSuccessMsg(t("form.fetched"));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setErrorMsg("Tytuł jest wymagany");
+      setErrorMsg(t("form.titleRequired"));
       return;
     }
 
@@ -63,7 +66,7 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
     if (finalCoverUrl && finalCoverUrl.startsWith("data:image/")) {
       const { publicUrl, error: uploadError } = await uploadCoverImage(finalCoverUrl);
       if (uploadError) {
-        setErrorMsg(`Błąd przesyłania okładki: ${uploadError}`);
+        setErrorMsg(t("form.uploadError", { error: uploadError }));
         setSubmitting(false);
         return;
       }
@@ -101,14 +104,14 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
       className="flex flex-col gap-3"
     >
       <div className="flex items-center justify-between pb-2 border-b border-s2">
-        <h3 className="text-lg font-extrabold tracking-[-.02em]">Dodaj nowy element</h3>
+        <h3 className="text-lg font-extrabold tracking-[-.02em]">{t("form.title")}</h3>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             className="text-sm text-mu"
           >
-            Zamknij
+            {t("common.close")}
           </button>
         )}
       </div>
@@ -136,7 +139,7 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
 
       <div>
         <label htmlFor="item-title" className="block text-[13px] font-medium text-mu mb-1.5">
-          Tytuł *
+          {t("form.titleLabel")}
         </label>
         <input
           id="item-title"
@@ -144,7 +147,7 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
           required
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="np. Władca Pierścieni / Dark Side of the Moon"
+          placeholder={t("form.titlePlaceholder")}
           className="w-full h-[46px] px-3.5 rounded-[14px] bg-bg border border-s2 text-tx placeholder:text-mu/70 text-[15px] outline-none focus:border-ac"
         />
       </div>
@@ -152,7 +155,7 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label htmlFor="item-category" className="block text-[13px] font-medium text-mu mb-1.5">
-            Kategoria
+            {t("form.category")}
           </label>
           <select
             id="item-category"
@@ -162,7 +165,7 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
           >
             {categories.map((cat) => (
               <option key={cat.value} value={cat.value}>
-                {cat.label}
+                {t(cat.label)}
               </option>
             ))}
           </select>
@@ -170,14 +173,14 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
 
         <div>
           <label htmlFor="item-artist" className="block text-[13px] font-medium text-mu mb-1.5">
-            Twórca / Wykonawca
+            {t("form.creator")}
           </label>
           <input
             id="item-artist"
             type="text"
             value={artistCreator}
             onChange={(e) => setArtistCreator(e.target.value)}
-            placeholder="np. Pink Floyd / J.R.R. Tolkien"
+            placeholder={t("form.creatorPlaceholder")}
             className="w-full h-[46px] px-3.5 rounded-[14px] bg-bg border border-s2 text-tx placeholder:text-mu/70 text-[15px] outline-none focus:border-ac"
           />
         </div>
@@ -186,21 +189,21 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label htmlFor="item-subcategory" className="block text-[13px] font-medium text-mu mb-1.5">
-            Podkategoria / Format
+            {t("form.subcategory")}
           </label>
           <input
             id="item-subcategory"
             type="text"
             value={subcategory}
             onChange={(e) => setSubcategory(e.target.value)}
-            placeholder="np. Winyl, Fantasy, PS5"
+            placeholder={t("form.subcategoryPlaceholder")}
             className="w-full h-[46px] px-3.5 rounded-[14px] bg-bg border border-s2 text-tx placeholder:text-mu/70 text-[15px] outline-none focus:border-ac"
           />
         </div>
 
         <div>
           <label htmlFor="item-cover" className="block text-[13px] font-medium text-mu mb-1.5">
-            URL Okładki
+            {t("form.coverUrl")}
           </label>
           <input
             id="item-cover"
@@ -218,7 +221,7 @@ export function AddItemForm({ onSubmit, onCancel, types }: AddItemFormProps) {
         disabled={submitting}
         className="w-full mt-2 h-[54px] rounded-2xl bg-ac text-act font-semibold text-base disabled:opacity-50"
       >
-        {submitting ? "Zapisywanie..." : "Dodaj do kolekcji"}
+        {submitting ? t("common.saving") : t("form.submit")}
       </button>
     </form>
   );

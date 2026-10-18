@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Logo, Sheet } from "@/components/ui/primitives";
 import { tileBackground } from "@/lib/items/display";
 import { AuthForm } from "./AuthForm";
+import { LanguageSwitch } from "@/components/ui/LanguageSwitch";
+import { useI18n } from "@/lib/i18n/locale";
 
 const book = (isbn: string) => `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`;
 const game = (steamAppId: number) =>
@@ -136,6 +138,7 @@ function Intro({ onDone }: { onDone: () => void }) {
 }
 
 export function Welcome({ onAuthSuccess }: { onAuthSuccess?: (message: string) => void }) {
+  const { t } = useI18n();
   const [sheet, setSheet] = useState<"login" | "signup" | null>(null);
   // Last opened mode, kept while the sheet slides out.
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -177,14 +180,15 @@ export function Welcome({ onAuthSuccess }: { onAuthSuccess?: (message: string) =
           }}
         />
         <div className="absolute left-0 right-0 bottom-0 px-7 pb-[max(54px,env(safe-area-inset-bottom))] flex flex-col gap-[22px]">
-          <div className="flex">
+          <div className="flex items-center justify-between">
             <Logo size={36} />
+            <LanguageSwitch />
           </div>
           <h1 className="m-0 text-[40px] leading-[1.03] font-extrabold tracking-[-.04em] text-balance">
-            Cała Twoja kolekcja. Na jednym ekranie.
+            {t("welcome.title")}
           </h1>
           <p className="-mt-1.5 text-base leading-[1.45] text-mu text-pretty">
-            Książki, płyty, gry i komiksy. Zeskanuj okładkę — resztę zrobimy za Ciebie.
+            {t("welcome.text")}
           </p>
           <div className="flex flex-col gap-3 mt-1.5">
             <button
@@ -192,14 +196,14 @@ export function Welcome({ onAuthSuccess }: { onAuthSuccess?: (message: string) =
               onClick={() => open("signup")}
               className="h-14 rounded-2xl bg-ac text-act text-[17px] font-semibold shadow-[0_14px_34px_-12px_var(--ac)]"
             >
-              Zarejestruj się
+              {t("auth.signUp")}
             </button>
             <button
               type="button"
               onClick={() => open("login")}
               className="h-14 rounded-2xl bg-white/[.07] border border-white/15 text-tx text-[17px] font-semibold backdrop-blur-md"
             >
-              Zaloguj się
+              {t("auth.logIn")}
             </button>
           </div>
         </div>
@@ -208,7 +212,7 @@ export function Welcome({ onAuthSuccess }: { onAuthSuccess?: (message: string) =
       <Sheet
         open={sheet !== null}
         onClose={() => setSheet(null)}
-        label={mode === "signup" ? "Rejestracja" : "Logowanie"}
+        label={mode === "signup" ? t("welcome.signupSheet") : t("welcome.loginSheet")}
         className="px-6 pb-[max(44px,env(safe-area-inset-bottom))]"
       >
         <AuthForm key={mode} initialMode={mode} onSuccess={onAuthSuccess} />

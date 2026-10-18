@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { CommunityItem, Item, ItemInsert } from "@/types/database";
+import { t } from "@/lib/i18n/locale";
 
 export async function fetchItems(category?: string): Promise<{ data: Item[] | null; error: string | null }> {
   try {
@@ -10,7 +11,7 @@ export async function fetchItems(category?: string): Promise<{ data: Item[] | nu
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return { data: null, error: "Użytkownik nie jest zalogowany" };
+      return { data: null, error: t("auth.notLoggedIn") };
     }
 
     // RLS allows public read (share links), so scope to the owner explicitly.
@@ -31,7 +32,7 @@ export async function fetchItems(category?: string): Promise<{ data: Item[] | nu
 
     return { data: (data as Item[]) || [], error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas pobierania elementów";
+    const message = err instanceof Error ? err.message : t("items.error.fetch");
     return { data: null, error: message };
   }
 }
@@ -59,7 +60,7 @@ export async function fetchPublicItems(
 
     return { data: (data as Item[]) || [], error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas pobierania publicznych elementów";
+    const message = err instanceof Error ? err.message : t("items.error.fetchPublic");
     return { data: null, error: message };
   }
 }
@@ -75,12 +76,12 @@ export async function fetchItemById(
       return { data: null, error: error.message };
     }
     if (!data) {
-      return { data: null, error: "Nie znaleziono elementu." };
+      return { data: null, error: t("items.error.notFound") };
     }
 
     return { data: data as Item, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas pobierania elementu";
+    const message = err instanceof Error ? err.message : t("items.error.fetchOne");
     return { data: null, error: message };
   }
 }
@@ -96,7 +97,7 @@ export async function addItem(
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return { data: null, error: "Użytkownik nie jest zalogowany" };
+      return { data: null, error: t("auth.notLoggedIn") };
     }
 
     // Same title can legitimately appear more than once under a different subcategory
@@ -122,7 +123,7 @@ export async function addItem(
     );
     if (isDuplicate) {
       const withSub = normalizedSubcategory ? ` (${item.subcategory!.trim()})` : "";
-      return { data: null, error: `„${item.title.trim()}”${withSub} jest już w Twoim katalogu.` };
+      return { data: null, error: t("items.duplicate", { title: item.title.trim(), sub: withSub }) };
     }
 
     const itemToInsert = {
@@ -143,7 +144,7 @@ export async function addItem(
 
     return { data: data as Item, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas dodawania elementu";
+    const message = err instanceof Error ? err.message : t("items.error.add");
     return { data: null, error: message };
   }
 }
@@ -158,7 +159,7 @@ export async function updateItemMetadata(
     const { error } = await supabase.from("items").update({ metadata }).eq("id", id);
     return error ? { success: false, error: error.message } : { success: true, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas zapisywania elementu";
+    const message = err instanceof Error ? err.message : t("items.error.save");
     return { success: false, error: message };
   }
 }
@@ -174,7 +175,7 @@ export async function deleteItem(id: string): Promise<{ success: boolean; error:
 
     return { success: true, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas usuwania elementu";
+    const message = err instanceof Error ? err.message : t("items.error.delete");
     return { success: false, error: message };
   }
 }
@@ -231,7 +232,7 @@ export async function searchCommunityItems(
     }
     return { data: unique, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas wyszukiwania w kolekcjach";
+    const message = err instanceof Error ? err.message : t("items.error.searchCommunity");
     return { data: null, error: message };
   }
 }

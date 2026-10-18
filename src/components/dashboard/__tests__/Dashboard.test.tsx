@@ -54,6 +54,7 @@ vi.mock("@/lib/items/api", () => ({
 const mockEnsureProfile = vi.fn();
 const mockUpdateDisplayName = vi.fn();
 const mockUpdateCollectionTypes = vi.fn();
+const mockUpdateLanguage = vi.fn();
 
 vi.mock("@/lib/profiles/api", async (importOriginal) => ({
   DISPLAY_NAME_MAX_LENGTH: 50,
@@ -61,6 +62,7 @@ vi.mock("@/lib/profiles/api", async (importOriginal) => ({
   ensureProfile: (userId: string, fallbackName: string) => mockEnsureProfile(userId, fallbackName),
   updateDisplayName: (name: string) => mockUpdateDisplayName(name),
   updateCollectionTypes: (types: string[]) => mockUpdateCollectionTypes(types),
+  updateLanguage: (language: string) => mockUpdateLanguage(language),
 }));
 
 const USER = { id: "user-test-uuid", email: "kolekcjoner@example.com" };
@@ -246,6 +248,33 @@ describe("Dashboard", () => {
 
     await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
     expect(await screen.findByText("Cała Twoja kolekcja. Na jednym ekranie.")).toBeInTheDocument();
+  });
+
+  describe("language", () => {
+    it("switches to the language saved in the profile", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+      mockEnsureProfile.mockResolvedValue({ data: { id: USER.id, display_name: "Maciek", language: "de" }, error: null });
+      render(<Dashboard />);
+
+      expect(await screen.findByRole("region", { name: "Bücher" })).toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "Navigation" })).toHaveTextContent("Suche");
+    });
+
+    it("changes the language from the profile menu and saves it in the profile", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: USER }, error: null });
+      mockUpdateLanguage.mockResolvedValue({ success: true, error: null });
+      render(<Dashboard />);
+      await screen.findByRole("region", { name: "Książki" });
+      fireEvent.click(tab("Profil"));
+
+      fireEvent.click(screen.getByRole("button", { name: "Więcej opcji" }));
+      fireEvent.click(screen.getByRole("menuitemradio", { name: "English" }));
+
+      expect(mockUpdateLanguage).toHaveBeenCalledWith("en");
+      expect(screen.getByRole("heading", { name: "Profile" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitemradio", { name: "English" })).toHaveAttribute("aria-checked", "true");
+      expect(localStorage.getItem("katalog.locale")).toBe("en");
+    });
   });
 
   describe("collection types", () => {

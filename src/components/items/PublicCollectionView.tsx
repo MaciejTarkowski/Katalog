@@ -7,7 +7,8 @@ import { fetchPublicItems } from "@/lib/items/api";
 import { fetchProfile } from "@/lib/profiles/api";
 import { Chip, Cover, SectionLoader } from "@/components/ui/primitives";
 import { useImagesReady } from "@/lib/image/useImagesReady";
-import { CATEGORIES, OTHER_CATEGORY, collectionSummary, filterByTypes, visibleCategories, matchesQuery, normalizeForSearch } from "@/lib/items/display";
+import { useI18n } from "@/lib/i18n/locale";
+import { collectionSummary, filterByTypes, isKnownCategory, otherCategory, visibleCategories, matchesQuery, normalizeForSearch } from "@/lib/items/display";
 
 function RowCard({ item }: { item: Item }) {
   return (
@@ -36,6 +37,7 @@ interface PublicCollectionViewProps {
 }
 
 export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
+  const { t } = useI18n();
   const [allItems, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -88,16 +90,16 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
   const query = normalizeForSearch(searchQuery.trim());
   // Categories the owner unchecked are hidden here too (the items stay in the database).
   const items = filterByTypes(allItems, ownerTypes);
-  const categories = visibleCategories(ownerTypes);
-  const hasOther = items.some((i) => !CATEGORIES.some((c) => c.value === i.category));
-  const tabs = hasOther ? [...categories, OTHER_CATEGORY] : categories;
+  const categories = visibleCategories(ownerTypes, t);
+  const hasOther = items.some((i) => !isKnownCategory(i.category));
+  const tabs = hasOther ? [...categories, otherCategory(t)] : categories;
   const rows = tabs
     .filter((c) => selectedCategory === "all" || selectedCategory === c.value)
     .map((c) => ({
       ...c,
       items: items.filter(
         (i) =>
-          (c.value === "other" ? !CATEGORIES.some((k) => k.value === i.category) : i.category === c.value) &&
+          (c.value === "other" ? !isKnownCategory(i.category) : i.category === c.value) &&
           matchesQuery(i, query)
       ),
     }))
@@ -115,37 +117,38 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
       <div className="px-5 pt-2 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-[10.5px] font-bold tracking-[.14em] px-2 py-1 rounded-md bg-ac text-act uppercase">
-            Publiczna Kolekcja
+            {t("public.badge")}
           </span>
           <button
             type="button"
             onClick={handleCopyLink}
             className="h-[34px] px-[15px] rounded-[17px] border border-white/15 bg-white/[.06] text-tx text-[13px] font-semibold"
           >
-            {copied ? "✓ Skopiowano link!" : "🔗 Udostępnij"}
+            {copied ? t("public.copied") : t("public.share")}
           </button>
         </div>
         <div>
           <h2 className="text-[28px] font-extrabold tracking-[-.035em] leading-[1.08]">
-            {ownerName ? `Kolekcja użytkownika ${ownerName}` : "Kolekcja użytkownika"}
+            {ownerName ? t("public.titleOf", { name: ownerName }) : t("public.title")}
           </h2>
           <p className="text-sm text-mu mt-1">
-            Tryb tylko do odczytu{items.length > 0 ? ` · ${collectionSummary(items)}` : ""}
+            {t("public.readOnly")}
+            {items.length > 0 ? ` · ${collectionSummary(items, t)}` : ""}
           </p>
         </div>
         <input
           type="search"
-          aria-label="Szukaj w kolekcji"
-          placeholder="Szukaj po tytule lub twórcy..."
+          aria-label={t("search.inCollection")}
+          placeholder={t("search.placeholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full h-[50px] px-4 rounded-[14px] bg-bg border border-s2 text-base text-tx placeholder:text-mu/70 outline-none focus:border-ac transition-colors"
         />
       </div>
 
-      <div role="tablist" aria-label="Kategorie" className="flex gap-2 overflow-x-auto scrollbar-none px-5 pt-4 pb-1">
+      <div role="tablist" aria-label={t("common.categories")} className="flex gap-2 overflow-x-auto scrollbar-none px-5 pt-4 pb-1">
         <Chip role="tab" active={selectedCategory === "all"} onClick={() => setSelectedCategory("all")}>
-          Wszystkie
+          {t("common.all")}
         </Chip>
         {tabs.map((c) => (
           <Chip key={c.value} role="tab" active={selectedCategory === c.value} onClick={() => setSelectedCategory(c.value)}>
@@ -162,9 +165,9 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
         <SectionLoader className="mt-6" />
       ) : rows.length === 0 ? (
         <div className="mx-5 mt-6 px-5 py-11 rounded-[18px] bg-s1 border border-s2 text-center">
-          <p className="text-[15px] font-semibold">{query ? `Brak wyników dla „${searchQuery.trim()}”` : "Pusta kolekcja"}</p>
+          <p className="text-[15px] font-semibold">{query ? t("search.noResultsFor", { query: searchQuery.trim() }) : t("home.empty.title")}</p>
           <p className="text-[13px] text-mu mt-1">
-            {query ? "Spróbuj innej frazy lub kategorii." : "Brak elementów w wybranej kategorii."}
+            {query ? t("search.tryOther") : t("public.emptyCategory")}
           </p>
         </div>
       ) : (
@@ -184,9 +187,9 @@ export function PublicCollectionView({ userId }: PublicCollectionViewProps) {
       )}
 
       <div className="mx-5 mt-10 px-5 py-6 rounded-[18px] bg-s1 border border-s2 text-center flex flex-col gap-3">
-        <p className="text-[13px] text-mu">Podoba Ci się ten zbiór?</p>
+        <p className="text-[13px] text-mu">{t("public.like")}</p>
         <Link href="/" className="inline-flex items-center justify-center h-11 px-5 rounded-full bg-ac text-act font-semibold text-[15px]">
-          Załóż własny darmowy Katalog
+          {t("public.cta")}
         </Link>
       </div>
     </div>

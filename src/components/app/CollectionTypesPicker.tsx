@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CATEGORIES } from "@/lib/items/display";
+import { CATEGORIES, localizedCategories } from "@/lib/items/display";
 import { Icon, Logo } from "@/components/ui/primitives";
+import { useI18n } from "@/lib/i18n/locale";
 
 interface CollectionTypesPickerProps {
   initial: string[];
@@ -14,6 +15,7 @@ interface CollectionTypesPickerProps {
 
 /** Which item categories the user keeps in the catalog — asked on first login, changed from the profile. */
 export function CollectionTypesPicker({ initial, onSave, onCancel }: CollectionTypesPickerProps) {
+  const { t } = useI18n();
   const [selected, setSelected] = useState<string[]>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function CollectionTypesPicker({ initial, onSave, onCancel }: CollectionT
           <button
             type="button"
             onClick={onCancel}
-            aria-label="Wróć"
+            aria-label={t("common.back")}
             className="absolute left-0 top-2 w-11 h-11 rounded-full text-tx flex items-center justify-center p-0"
           >
             <Icon name="arrow_back_ios" size={20} style={{ marginLeft: 5 }} />
@@ -47,13 +49,13 @@ export function CollectionTypesPicker({ initial, onSave, onCancel }: CollectionT
         <Logo size={26} />
       </div>
 
-      <h1 className="text-[28px] font-extrabold tracking-[-.035em] mt-6">Co kolekcjonujesz?</h1>
+      <h1 className="text-[28px] font-extrabold tracking-[-.035em] mt-6">{t("types.title")}</h1>
       <p className="text-[14px] text-mu mt-1.5">
-        Wybierz typy pozycji w katalogu. Możesz to zmienić w profilu — nic nie zostanie usunięte.
+        {t("types.intro")}
       </p>
 
-      <div role="group" aria-label="Typy pozycji" className="grid grid-cols-2 gap-3 mt-6">
-        {CATEGORIES.map((c) => {
+      <div role="group" aria-label={t("types.group")} className="grid grid-cols-2 gap-3 mt-6">
+        {localizedCategories(t).map((c) => {
           const on = selected.includes(c.value);
           return (
             <button
@@ -83,7 +85,7 @@ export function CollectionTypesPicker({ initial, onSave, onCancel }: CollectionT
         disabled={selected.length === 0 || saving}
         className="mt-8 h-[52px] rounded-full bg-ac text-act font-semibold text-[16px] disabled:opacity-40"
       >
-        {saving ? "Zapisywanie..." : "Zapisz"}
+        {saving ? t("common.saving") : t("common.save")}
       </button>
     </div>
   );

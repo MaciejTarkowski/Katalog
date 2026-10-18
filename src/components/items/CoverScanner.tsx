@@ -12,6 +12,7 @@ import {
   type ScannedItemData,
 } from "@/lib/scan/pipeline";
 import { CommunitySearchDialog } from "./CommunitySearchDialog";
+import { useI18n } from "@/lib/i18n/locale";
 
 export type { ScannedItemData };
 
@@ -26,6 +27,7 @@ interface CoverScannerProps {
 type ScanPhase = "idle" | PipelinePhase;
 
 export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<ScanPhase>("idle");
   const [statusText, setStatusText] = useState("");
   const [manualSearch, setManualSearch] = useState<{
@@ -75,7 +77,7 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
       finishWithData(await completeRecognition(data));
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Wystąpił błąd podczas skanowania.";
+        err instanceof Error ? err.message : t("scan.error");
       const query = err instanceof ScanError ? err.query : "";
       const previewUrl = err instanceof ScanError ? err.previewUrl : undefined;
       onError?.(message);
@@ -99,7 +101,7 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
       setManualSearch(null);
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Wystąpił błąd podczas wyszukiwania.";
+        err instanceof Error ? err.message : t("scan.searchError");
       onError?.(message);
       setCommunitySearch({ query, previewUrl: manualSearch.previewUrl });
     } finally {
@@ -140,7 +142,7 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
         ) : (
           <>
             <span aria-hidden="true" className="ms text-xl">photo_camera</span>
-            <span>Zeskanuj okładkę</span>
+            <span>{t("scan.cover")}</span>
           </>
         )}
       </button>
@@ -149,8 +151,8 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
         <div className="flex gap-2">
           <input
             type="text"
-            aria-label="Popraw odczytany tekst i wyszukaj ponownie"
-            placeholder="Wpisz tytuł z okładki"
+            aria-label={t("scan.fixText")}
+            placeholder={t("scan.typeTitle")}
             value={manualSearch.query}
             disabled={busy}
             onChange={(e) => setManualSearch({ ...manualSearch, query: e.target.value })}
@@ -168,7 +170,7 @@ export function CoverScanner({ onScanComplete, onError }: CoverScannerProps) {
             onClick={() => void handleManualSearch()}
             className="px-3.5 h-[42px] rounded-[14px] bg-ac/15 border border-ac/40 text-ac font-semibold text-sm disabled:opacity-50"
           >
-            Szukaj
+            {t("scan.search")}
           </button>
         </div>
       )}

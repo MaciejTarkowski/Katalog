@@ -49,7 +49,7 @@ describe("POST /api/catalog/lookup", () => {
     const res = await POST(request({ ean: "abc" }));
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("nieprawidłowy");
+    expect(json.error).toBe("The EAN/ISBN code has an invalid format.");
   });
 
   it("returns metadata for a valid EAN", async () => {

@@ -1,3 +1,5 @@
+import { t } from "@/lib/i18n/locale";
+
 /** Rectangle as fractions (0–1) of the image: top-left corner plus size. */
 export interface CropBox {
   x: number;
@@ -10,7 +12,7 @@ export interface CropBox {
 export function cropImage(dataUrl: string, box: CropBox, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onerror = () => reject(new Error("Nie udało się załadować obrazu do kadrowania."));
+    img.onerror = () => reject(new Error(t("image.cropError")));
     img.onload = () => {
       const sx = Math.round(box.x * img.width);
       const sy = Math.round(box.y * img.height);
@@ -22,7 +24,7 @@ export function cropImage(dataUrl: string, box: CropBox, quality = 0.85): Promis
       canvas.height = sh;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        reject(new Error("Nie udało się utworzyć kontekstu canvas 2D."));
+        reject(new Error(t("image.canvasError")));
         return;
       }
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);

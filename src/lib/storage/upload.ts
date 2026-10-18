@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n/locale";
 import { createClient } from "@/lib/supabase/client";
 
 export interface UploadCoverResult {
@@ -69,7 +70,7 @@ export async function uploadCoverImage(
 
     return { publicUrl: urlData.publicUrl, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas przesyłania okładki.";
+    const message = err instanceof Error ? err.message : t("upload.error");
     return { publicUrl: null, error: message };
   }
 }

@@ -3,6 +3,7 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { initialOf, tileBackground } from "@/lib/items/display";
+import { useI18n } from "@/lib/i18n/locale";
 
 export function Icon({
   name,
@@ -53,8 +54,9 @@ export function Logo({ size = 26, wordmark = true }: { size?: number; wordmark?:
 
 /** Spinner standing in for a whole section while its data and covers load. */
 export function SectionLoader({ className = "" }: { className?: string }) {
+  const { t } = useI18n();
   return (
-    <div role="status" aria-label="Ładowanie" className={`flex justify-center py-16 ${className}`}>
+    <div role="status" aria-label={t("common.loading")} className={`flex justify-center py-16 ${className}`}>
       <div className="w-8 h-8 rounded-full border-2 border-ac border-t-transparent animate-spin" />
     </div>
   );

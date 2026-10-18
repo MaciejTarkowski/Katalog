@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import type { Item } from "@/types/database";
-import { CATEGORIES, collectionSummary, initialOf, type CategoryDef } from "@/lib/items/display";
+import { collectionSummary, compareTitles, initialOf, localizedCategories, type CategoryDef } from "@/lib/items/display";
 import { DISPLAY_NAME_MAX_LENGTH, updateDisplayName } from "@/lib/profiles/api";
 import { Cover, Icon } from "@/components/ui/primitives";
+import { useI18n } from "@/lib/i18n/locale";
+import { LOCALES, LOCALE_NAMES, type Locale } from "@/lib/i18n/config";
 
 interface ProfileScreenProps {
   name: string;
@@ -15,19 +17,23 @@ interface ProfileScreenProps {
   onNameSaved: (name: string) => void;
   onSignOut: () => void;
   onEditTypes: () => void;
+  onLanguageChange: (locale: Locale) => void;
   onToast: (message: string) => void;
 }
 
 export function ProfileScreen({
   name,
   items,
-  categories = CATEGORIES,
+  categories: shownCategories,
   onOpen,
   onNameSaved,
   onSignOut,
   onEditTypes,
+  onLanguageChange,
   onToast,
 }: ProfileScreenProps) {
+  const { locale, t } = useI18n();
+  const categories = shownCategories ?? localizedCategories(t);
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
@@ -35,13 +41,13 @@ export function ProfileScreen({
   const [category, setCategory] = useState("all");
   const [sortNew, setSortNew] = useState(true);
 
-  const stats = [{ value: "all", label: "Wszystko", color: "var(--ac)" }, ...categories].map((c) => ({
+  const stats = [{ value: "all", label: t("profile.statsAll"), color: "var(--ac)" }, ...categories].map((c) => ({
     ...c,
     count: c.value === "all" ? items.length : items.filter((i) => i.category === c.value).length,
   }));
   const active = stats.find((s) => s.value === category);
   let shown = items.filter((i) => category === "all" || i.category === category);
-  if (!sortNew) shown = shown.slice().sort((a, b) => a.title.localeCompare(b.title, "pl"));
+  if (!sortNew) shown = shown.slice().sort((a, b) => compareTitles(a.title, b.title, locale));
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,17 +59,17 @@ export function ProfileScreen({
     setError(null);
     setEditing(false);
     onNameSaved(draft.trim());
-    onToast("Zapisano");
+    onToast(t("common.saved"));
   };
 
   return (
     <div className="relative pb-[120px]">
       <div className="relative h-[60px] mt-[env(safe-area-inset-top)] flex items-center justify-center">
-        <h1 className="text-base font-bold">Profil</h1>
+        <h1 className="text-base font-bold">{t("profile.title")}</h1>
         <button
           type="button"
           onClick={() => setMenu((m) => !m)}
-          aria-label="Więcej opcji"
+          aria-label={t("profile.more")}
           aria-expanded={menu}
           className="absolute right-3.5 top-2 w-11 h-11 rounded-full text-tx flex items-center justify-center p-0"
         >
@@ -82,8 +88,26 @@ export function ProfileScreen({
               className="w-full flex items-center gap-2.5 h-[46px] px-3 rounded-[11px] text-tx text-[15px] font-semibold hover:bg-white/5"
             >
               <Icon name="category" size={21} />
-              Typy w katalogu
+              {t("profile.types")}
             </button>
+            <div role="group" aria-label={t("profile.language")} className="flex items-center gap-1 h-[46px] px-3">
+              <Icon name="language" size={21} className="text-mu mr-1" />
+              {LOCALES.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={locale === code}
+                  aria-label={LOCALE_NAMES[code]}
+                  lang={code}
+                  onClick={() => onLanguageChange(code)}
+                  className="h-8 px-2.5 rounded-[9px] text-[13px] font-bold uppercase transition-colors"
+                  style={locale === code ? { background: "var(--ac)", color: "var(--acT)" } : { color: "var(--mu)" }}
+                >
+                  {code}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               role="menuitem"
@@ -91,7 +115,7 @@ export function ProfileScreen({
               className="w-full flex items-center gap-2.5 h-[46px] px-3 rounded-[11px] text-rose-400 text-[15px] font-semibold hover:bg-rose-400/10"
             >
               <Icon name="logout" size={21} />
-              Wyloguj
+              {t("profile.signOut")}
             </button>
           </div>
         </>
@@ -111,7 +135,7 @@ export function ProfileScreen({
         {editing ? (
           <form onSubmit={save} className="flex items-center gap-2 mt-3 w-full max-w-[280px]">
             <input
-              aria-label="Nazwa wyświetlana"
+              aria-label={t("profile.displayName")}
               autoFocus
               value={draft}
               maxLength={DISPLAY_NAME_MAX_LENGTH}
@@ -123,7 +147,7 @@ export function ProfileScreen({
             />
             <button
               type="submit"
-              aria-label="Zapisz nazwę"
+              aria-label={t("profile.saveName")}
               className="w-11 h-11 flex-none rounded-[13px] bg-ac text-act flex items-center justify-center p-0"
             >
               <Icon name="check" />
@@ -131,14 +155,14 @@ export function ProfileScreen({
           </form>
         ) : (
           <div className="flex items-center gap-1.5 mt-3.5 pl-[30px]">
-            <div className="text-[22px] font-extrabold tracking-[-.03em]">{name || "Bez nazwy"}</div>
+            <div className="text-[22px] font-extrabold tracking-[-.03em]">{name || t("profile.noName")}</div>
             <button
               type="button"
               onClick={() => {
                 setDraft(name);
                 setEditing(true);
               }}
-              aria-label="Edytuj nazwę"
+              aria-label={t("profile.editName")}
               className="w-[30px] h-[30px] rounded-full text-mu flex items-center justify-center p-0"
             >
               <Icon name="edit" size={19} />
@@ -150,10 +174,10 @@ export function ProfileScreen({
             {error}
           </p>
         )}
-        <div className="text-[13.5px] text-mu mt-[3px]">{collectionSummary(items)}</div>
+        <div className="text-[13.5px] text-mu mt-[3px]">{collectionSummary(items, t)}</div>
       </div>
 
-      <div role="tablist" aria-label="Statystyki kolekcji" style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }} className="grid mx-3 mt-[22px] border-b border-s2">
+      <div role="tablist" aria-label={t("profile.stats")} style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }} className="grid mx-3 mt-[22px] border-b border-s2">
         {stats.map((s) => {
           const on = category === s.value;
           return (
@@ -179,7 +203,7 @@ export function ProfileScreen({
 
       <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5">
         <div className="text-[13px] text-mu">
-          {category === "all" ? "Cała kolekcja" : active?.label} · {shown.length}
+          {category === "all" ? t("profile.wholeCollection") : active?.label} · {shown.length}
         </div>
         <button
           type="button"
@@ -187,7 +211,7 @@ export function ProfileScreen({
           className="flex items-center gap-1 text-tx text-[13px] font-medium p-0"
         >
           <Icon name="swap_vert" size={18} />
-          {sortNew ? "Najnowsze" : "A–Z"}
+          {sortNew ? t("profile.sortNewest") : t("profile.sortAZ")}
         </button>
       </div>
 

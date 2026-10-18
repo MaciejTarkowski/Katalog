@@ -92,9 +92,16 @@ export const ALL_TYPES = ["book", "music", "game", "comic"];
 export async function mockBackend(
   page: Page,
   seed: MockItem[] = SEED_ITEMS,
-  { collectionTypes = ALL_TYPES }: { collectionTypes?: string[] | null } = {}
+  {
+    collectionTypes = ALL_TYPES,
+    locale = "pl",
+  }: { collectionTypes?: string[] | null; locale?: string | null } = {}
 ): Promise<Backend> {
   let storedTypes = collectionTypes;
+  // The app defaults to English; these specs check the Polish UI (null = keep the default).
+  if (locale) {
+    await page.addInitScript((value) => window.localStorage.setItem("katalog.locale", value), locale);
+  }
   const backend: Backend = { items: [...seed], inserts: [], deletes: [], writes: [], lookups: [] };
 
   // Plakietka dev-serwera Next.js zasłania lewe zakładki dolnego paska — w testach ją chowamy.

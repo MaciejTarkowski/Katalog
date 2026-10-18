@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/locale";
 
 interface AuthFormProps {
   onSuccess?: (message: string) => void;
@@ -47,6 +48,7 @@ const INPUT =
 const LABEL = "flex flex-col gap-1.5 text-[13px] font-medium text-mu";
 
 export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
+  const { t } = useI18n();
   const [isSignUp, setIsSignUp] = useState(initialMode === "signup");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -78,10 +80,10 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
         if (error) {
           setErrorMsg(error.message);
         } else if (data.session) {
-          setSuccessMsg("Konto utworzone pomyślnie!");
-          if (onSuccess) onSuccess("Konto utworzone pomyślnie!");
+          setSuccessMsg(t("auth.created"));
+          if (onSuccess) onSuccess(t("auth.created"));
         } else {
-          setSuccessMsg("Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.");
+          setSuccessMsg(t("auth.confirmEmail"));
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -92,12 +94,12 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
         if (error) {
           setErrorMsg(error.message);
         } else {
-          setSuccessMsg("Zalogowano pomyślnie!");
-          if (onSuccess) onSuccess("Zalogowano pomyślnie!");
+          setSuccessMsg(t("auth.loggedIn"));
+          if (onSuccess) onSuccess(t("auth.loggedIn"));
         }
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Wystąpił nieoczekiwany błąd.";
+      const message = err instanceof Error ? err.message : t("auth.unexpected");
       setErrorMsg(message);
     } finally {
       setLoading(false);
@@ -116,7 +118,7 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
       // On success the browser is redirected to the provider, so there is nothing more to do here.
       if (error) setErrorMsg(error.message);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Wystąpił nieoczekiwany błąd.");
+      setErrorMsg(err instanceof Error ? err.message : t("auth.unexpected"));
     } finally {
       setLoading(false);
     }
@@ -126,33 +128,31 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
     <div className="w-full flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-extrabold tracking-[-.03em]">
-          {isSignUp ? "Utwórz konto w Katalogu" : "Zaloguj się do Katalogu"}
+          {isSignUp ? t("auth.signupTitle") : t("auth.loginTitle")}
         </h2>
         <p className="text-sm text-mu">
-          {isSignUp
-            ? "Zacznij bezpiecznie katalogować swoje zbiory"
-            : "Zarządzaj swoją kolekcją w chmurze"}
+          {isSignUp ? t("auth.signupIntro") : t("auth.loginIntro")}
         </p>
       </div>
 
       <button type="button" onClick={() => handleOAuth("google")} disabled={loading} className={OAUTH_BUTTON}>
         <GoogleLogo />
-        Kontynuuj z Google
+        {t("auth.google")}
       </button>
       <button type="button" onClick={() => handleOAuth("apple")} disabled={loading} className={OAUTH_BUTTON}>
         <AppleLogo />
-        Kontynuuj z Apple
+        {t("auth.apple")}
       </button>
       <div className="flex items-center gap-3 text-xs text-mu" aria-hidden="true">
         <span className="flex-1 h-px bg-s2" />
-        lub
+        {t("auth.or")}
         <span className="flex-1 h-px bg-s2" />
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {isSignUp && (
           <label htmlFor="auth-display-name" className={LABEL}>
-            Nazwa wyświetlana
+            {t("auth.displayName")}
             <input
               id="auth-display-name"
               type="text"
@@ -160,14 +160,14 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
               maxLength={50}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Jak mają Cię widzieć inni"
+              placeholder={t("auth.displayNamePlaceholder")}
               className={INPUT}
             />
           </label>
         )}
 
         <label htmlFor="auth-email" className={LABEL}>
-          Adres e-mail
+          {t("auth.email")}
           <input
             id="auth-email"
             type="email"
@@ -175,13 +175,13 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="twoj@email.pl"
+            placeholder={t("auth.emailPlaceholder")}
             className={INPUT}
           />
         </label>
 
         <label htmlFor="auth-password" className={LABEL}>
-          Hasło
+          {t("auth.password")}
           <input
             id="auth-password"
             type="password"
@@ -212,7 +212,7 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
           disabled={loading}
           className="h-[54px] mt-1 rounded-2xl bg-ac text-act text-[17px] font-semibold disabled:opacity-50 transition-opacity"
         >
-          {loading ? "Przetwarzanie..." : isSignUp ? "Zarejestruj się" : "Zaloguj się"}
+          {loading ? t("auth.processing") : isSignUp ? t("auth.signUp") : t("auth.logIn")}
         </button>
 
         <button
@@ -224,7 +224,7 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
           }}
           className="p-1 text-sm text-mu"
         >
-          {isSignUp ? "Masz już konto? Zaloguj się" : "Nie masz konta? Zarejestruj się"}
+          {isSignUp ? t("auth.haveAccount") : t("auth.noAccount")}
         </button>
       </form>
     </div>

@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/types/database";
-import { CATEGORIES } from "@/lib/items/display";
+import { isKnownCategory } from "@/lib/items/display";
+import { t } from "@/lib/i18n/locale";
+import type { Locale } from "@/lib/i18n/config";
 
 export const DISPLAY_NAME_MAX_LENGTH = 50;
 
@@ -11,7 +13,7 @@ export async function fetchProfile(
     const supabase = createClient();
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, display_name, collection_types")
+      .select("id, display_name, collection_types, language")
       .eq("id", userId)
       .maybeSingle();
 
@@ -21,7 +23,7 @@ export async function fetchProfile(
 
     return { data: (data as Profile) || null, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas pobierania profilu";
+    const message = err instanceof Error ? err.message : t("profile.error.fetch");
     return { data: null, error: message };
   }
 }
@@ -62,7 +64,7 @@ export async function ensureProfile(
 
     return { data: { ...profile.data, id: userId, display_name: fallbackName }, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas zapisywania nazwy";
+    const message = err instanceof Error ? err.message : t("profile.error.saveName");
     return { data: profile.data, error: message };
   }
 }
@@ -72,7 +74,7 @@ export async function updateDisplayName(
 ): Promise<{ success: boolean; error: string | null }> {
   const displayName = name.trim();
   if (!displayName || displayName.length > DISPLAY_NAME_MAX_LENGTH) {
-    return { success: false, error: `Nazwa musi mieć od 1 do ${DISPLAY_NAME_MAX_LENGTH} znaków.` };
+    return { success: false, error: t("profile.error.nameLength", { max: DISPLAY_NAME_MAX_LENGTH }) };
   }
 
   try {
@@ -83,7 +85,7 @@ export async function updateDisplayName(
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return { success: false, error: "Użytkownik nie jest zalogowany" };
+      return { success: false, error: t("auth.notLoggedIn") };
     }
 
     const { error } = await supabase
@@ -96,7 +98,7 @@ export async function updateDisplayName(
 
     return { success: true, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas zapisywania nazwy";
+    const message = err instanceof Error ? err.message : t("profile.error.saveName");
     return { success: false, error: message };
   }
 }
@@ -105,8 +107,8 @@ export async function updateDisplayName(
 export async function updateCollectionTypes(
   types: string[]
 ): Promise<{ success: boolean; error: string | null }> {
-  if (types.length === 0 || !types.every((t) => CATEGORIES.some((c) => c.value === t))) {
-    return { success: false, error: "Wybierz co najmniej jeden typ." };
+  if (types.length === 0 || !types.every(isKnownCategory)) {
+    return { success: false, error: t("types.pickOne") };
   }
 
   try {
@@ -117,7 +119,7 @@ export async function updateCollectionTypes(
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return { success: false, error: "Użytkownik nie jest zalogowany" };
+      return { success: false, error: t("auth.notLoggedIn") };
     }
 
     const { error } = await supabase
@@ -130,7 +132,33 @@ export async function updateCollectionTypes(
 
     return { success: true, error: null };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Błąd podczas zapisywania typów";
+    const message = err instanceof Error ? err.message : t("types.error.save");
+    return { success: false, error: message };
+  }
+}
+
+/** Saves the UI language of the current user, so it follows them to other devices. */
+export async function updateLanguage(language: Locale): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: t("auth.notLoggedIn") };
+    }
+
+    const { error } = await supabase.from("profiles").upsert({ id: user.id, language });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : t("profile.error.saveLanguage");
     return { success: false, error: message };
   }
 }

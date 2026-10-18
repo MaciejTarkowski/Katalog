@@ -1,7 +1,8 @@
 {
   "name": "Katalog",
   "short_name": "Katalog",
-  "description": "Aplikacja do katalogowania zbiorów i kolekcji z AI",
+  "description": "App for cataloguing your collections with AI",
+  "lang": "en",
   "start_url": "/",
   "id": "/",
   "display": "standalone",

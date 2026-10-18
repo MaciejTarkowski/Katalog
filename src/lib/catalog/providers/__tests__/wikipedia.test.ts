@@ -24,7 +24,7 @@ describe("findWikipediaDescription", () => {
       { title: "Red Dead Redemption 2", index: 2, extract: "Red Dead Redemption 2 – przygodowa gra akcji z 2018 roku wydana przez Rockstar Games." },
     ]);
 
-    const result = await findWikipediaDescription({ title: "Red Dead Redemption 2", creator: "Rockstar Games", category: "game" });
+    const result = await findWikipediaDescription({ title: "Red Dead Redemption 2", creator: "Rockstar Games", category: "game" }, "pl");
 
     const url = new URL(fetchMock.mock.calls[0][0]);
     expect(url.host).toBe("pl.wikipedia.org");
@@ -42,30 +42,30 @@ describe("findWikipediaDescription", () => {
       { title: "Diuna (powieść)", index: 3, extract: "Diuna – powieść fantastycznonaukowa Franka Herberta z 1965 roku." },
     ]);
 
-    const result = await findWikipediaDescription({ title: "Diuna", creator: "Frank Herbert", category: "book" });
+    const result = await findWikipediaDescription({ title: "Diuna", creator: "Frank Herbert", category: "book" }, "pl");
     expect(result?.description).toBe("Diuna – powieść fantastycznonaukowa Franka Herberta z 1965 roku.");
     expect(result?.url).toBe("https://pl.wikipedia.org/wiki/Diuna_(powie%C5%9B%C4%87)");
   });
 
   it("rejects an article with the same title that does not mention the creator", async () => {
     pages([{ title: "Gruby brzuch", index: 1, extract: "Gruby brzuch – potoczna nazwa otyłości brzusznej." }]);
-    expect(await findWikipediaDescription({ title: "Gruby Brzuch", creator: "Grubson", category: "music" })).toBeNull();
+    expect(await findWikipediaDescription({ title: "Gruby Brzuch", creator: "Grubson", category: "music" }, "pl")).toBeNull();
   });
 
   it("without a creator, needs the article to be about the right kind of item", async () => {
     pages([
       { title: "Nevermind", index: 1, extract: "Nevermind – słowo w języku angielskim." },
     ]);
-    expect(await findWikipediaDescription({ title: "Nevermind", creator: null, category: "music" })).toBeNull();
+    expect(await findWikipediaDescription({ title: "Nevermind", creator: null, category: "music" }, "pl")).toBeNull();
 
     pages([{ title: "Nevermind", index: 1, extract: "Nevermind – drugi album studyjny zespołu Nirvana." }]);
-    expect((await findWikipediaDescription({ title: "Nevermind", creator: null, category: "music" }))?.description).toContain("album");
+    expect((await findWikipediaDescription({ title: "Nevermind", creator: null, category: "music" }, "pl"))?.description).toContain("album");
   });
 
   it("shortens a long intro at a sentence end", async () => {
     const sentence = "To jest zdanie opisu powieści Stanisława Lema. ";
     pages([{ title: "Solaris", index: 1, extract: sentence.repeat(30).trim() }]);
-    const result = await findWikipediaDescription({ title: "Solaris", creator: "Stanisław Lem", category: "book" });
+    const result = await findWikipediaDescription({ title: "Solaris", creator: "Stanisław Lem", category: "book" }, "pl");
     expect(result!.description.length).toBeLessThanOrEqual(600);
     expect(result!.description.endsWith(".")).toBe(true);
   });
@@ -81,7 +81,7 @@ describe("findWikipediaDescription", () => {
       return { ok: true, status: 200, json: async () => ({ query: { pages: list } }) };
     });
 
-    const result = await findWikipediaDescription({ title: "1-2 Switch", creator: "Nintendo", category: "game" });
+    const result = await findWikipediaDescription({ title: "1-2 Switch", creator: "Nintendo", category: "game" }, "pl");
 
     expect(new URL(fetchMock.mock.calls[1][0]).host).toBe("en.wikipedia.org");
     expect(result).toEqual({
@@ -101,21 +101,40 @@ describe("findWikipediaDescription", () => {
       return { ok: true, status: 200, json: async () => ({ query: { pages: list } }) };
     });
 
-    const result = await findWikipediaDescription({ title: "Dune", creator: "Frank Herbert", category: "book" });
+    const result = await findWikipediaDescription({ title: "Dune", creator: "Frank Herbert", category: "book" }, "pl");
     expect(result?.url).toBe("https://en.wikipedia.org/wiki/Dune_(novel)");
   });
 
   it("does not ask English Wikipedia when the Polish article matches", async () => {
     pages([{ title: "Solaris", index: 1, extract: "Solaris – powieść Stanisława Lema." }]);
-    await findWikipediaDescription({ title: "Solaris", creator: "Stanisław Lem", category: "book" });
+    await findWikipediaDescription({ title: "Solaris", creator: "Stanisław Lem", category: "book" }, "pl");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks only English Wikipedia for an English UI", async () => {
+    pages([{ title: "Solaris", index: 1, extract: "Solaris is a 1961 novel by Stanisław Lem." }]);
+    const result = await findWikipediaDescription({ title: "Solaris", creator: "Stanisław Lem", category: "book" }, "en");
+    expect(new URL(fetchMock.mock.calls[0][0]).host).toBe("en.wikipedia.org");
+    expect(result?.url).toBe("https://en.wikipedia.org/wiki/Solaris");
+  });
+
+  it("asks German Wikipedia first for a German UI, English as a fallback", async () => {
+    fetchMock.mockImplementation(async (href: string) => {
+      const list: Page[] = href.includes("de.wikipedia.org")
+        ? [{ title: "Dune (Roman)", index: 1, extract: "Dune ist ein Science-Fiction-Roman von Frank Herbert." }]
+        : [];
+      return { ok: true, status: 200, json: async () => ({ query: { pages: list } }) };
+    });
+    const result = await findWikipediaDescription({ title: "Dune", creator: null, category: "book" }, "de");
+    expect(new URL(fetchMock.mock.calls[0][0]).host).toBe("de.wikipedia.org");
+    expect(result?.url).toBe("https://de.wikipedia.org/wiki/Dune_(Roman)");
   });
 
   it("returns null when Wikipedia has nothing or fails", async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ batchcomplete: true }) });
-    expect(await findWikipediaDescription({ title: "Szepty spoza nicości", creator: "Remigiusz Mróz", category: "book" })).toBeNull();
+    expect(await findWikipediaDescription({ title: "Szepty spoza nicości", creator: "Remigiusz Mróz", category: "book" }, "pl")).toBeNull();
 
     fetchMock.mockRejectedValue(new Error("offline"));
-    expect(await findWikipediaDescription({ title: "Solaris", creator: "Stanisław Lem", category: "book" })).toBeNull();
+    expect(await findWikipediaDescription({ title: "Solaris", creator: "Stanisław Lem", category: "book" }, "pl")).toBeNull();
   });
 });

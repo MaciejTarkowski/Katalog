@@ -4,6 +4,7 @@ import { detectBarcodeFromFile } from "@/lib/scan/barcode";
 import { recognizeCoverText } from "@/lib/scan/ocr";
 import { SEARCH_LIMIT } from "@/lib/catalog/searchConfig";
 import type { RecognizedCover } from "@/lib/recognize/gemini";
+import { localeHeaders, t } from "@/lib/i18n/locale";
 
 export interface ScannedItemData {
   title: string;
@@ -24,12 +25,23 @@ export interface ScannedItemData {
 
 export type ScanPhase = "compressing" | "barcode" | "recognize" | "ocr" | "lookup";
 
-export const PHASE_LABEL: Record<ScanPhase, string> = {
-  compressing: "Kompresja zdjęcia...",
-  barcode: "Szukam kodu kreskowego...",
-  recognize: "Rozpoznawanie okładki...",
-  ocr: "Rozpoznawanie tekstu (OCR)...",
-  lookup: "Dociąganie danych z baz katalogowych...",
+/** Status text per phase, in the current UI language (read on use). */
+export const PHASE_LABEL: Readonly<Record<ScanPhase, string>> = {
+  get compressing() {
+    return t("scan.phase.compressing");
+  },
+  get barcode() {
+    return t("scan.phase.barcode");
+  },
+  get recognize() {
+    return t("scan.phase.recognize");
+  },
+  get ocr() {
+    return t("scan.phase.ocr");
+  },
+  get lookup() {
+    return t("scan.phase.lookup");
+  },
 };
 
 /** Thrown when nothing was found; carries what is known so far for a manual search. */
@@ -49,7 +61,7 @@ async function recognizeWithVision(imageDataUrl: string): Promise<ScannedItemDat
   try {
     const res = await fetch("/api/catalog/recognize", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...localeHeaders() },
       body: JSON.stringify({ image: imageDataUrl }),
     });
     const json = await res.json();
@@ -71,7 +83,7 @@ export async function completeRecognition(data: ScannedItemData): Promise<Scanne
   try {
     const res = await fetch("/api/catalog/enrich", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...localeHeaders() },
       body: JSON.stringify({ recognized }),
     });
     const json = await res.json();
@@ -89,12 +101,12 @@ export async function lookupMetadata(payload: {
 }): Promise<ScannedItemData> {
   const res = await fetch("/api/catalog/lookup", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...localeHeaders() },
     body: JSON.stringify(payload),
   });
   const json = await res.json();
   if (!res.ok || !json.success) {
-    throw new Error(json.error || "Nie udało się pobrać metadanych.");
+    throw new Error(json.error || t("scan.lookupFailed"));
   }
   return json.data as ScannedItemData;
 }
@@ -111,12 +123,12 @@ export async function searchCatalogItems(
 ): Promise<CatalogSearchPage> {
   const res = await fetch("/api/catalog/search", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...localeHeaders() },
     body: JSON.stringify({ query, category, offset: page * SEARCH_LIMIT }),
   });
   const json = await res.json();
   if (!res.ok || !json.success) {
-    throw new Error(json.error || "Nie udało się wyszukać.");
+    throw new Error(json.error || t("scan.searchFailed"));
   }
   return { items: json.data as ScannedItemData[], hasMore: Boolean(json.hasMore) };
 }
@@ -160,14 +172,14 @@ export async function scanCoverFile(
     const cover = await recognizeCoverText(file);
     ocrText = cover.query;
     if (!ocrText) {
-      throw new Error("Nie udało się odczytać tekstu z okładki. Wpisz tytuł ręcznie.");
+      throw new Error(t("scan.noText"));
     }
 
     onPhase("lookup");
     const data = await lookupMetadata({ query: ocrText, category: cover.category });
     return await withPreview(cover.subcategory ? { ...data, subcategory: cover.subcategory } : data);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Wystąpił błąd podczas skanowania.";
+    const message = err instanceof Error ? err.message : t("scan.error");
     throw new ScanError(message, ocrText, previewUrl);
   }
 }

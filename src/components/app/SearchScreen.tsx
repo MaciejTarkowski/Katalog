@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { Item } from "@/types/database";
-import { CATEGORIES, categoryDef, type CategoryDef, matchesQuery, normalizeForSearch, pillStyle, plural } from "@/lib/items/display";
+import { categoryDef, localizedCategories, type CategoryDef, matchesQuery, normalizeForSearch, pillStyle } from "@/lib/items/display";
+import { useI18n } from "@/lib/i18n/locale";
 import { Chip, Cover, Icon } from "@/components/ui/primitives";
 
 interface SearchScreenProps {
@@ -12,13 +13,15 @@ interface SearchScreenProps {
   onOpen: (item: Item) => void;
 }
 
-export function SearchScreen({ items, categories = CATEGORIES, onOpen }: SearchScreenProps) {
+export function SearchScreen({ items, categories: shownCategories, onOpen }: SearchScreenProps) {
+  const { t } = useI18n();
+  const categories = shownCategories ?? localizedCategories(t);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const nq = normalizeForSearch(query.trim());
   const byQuery = items.filter((i) => matchesQuery(i, nq));
   const results = byQuery.filter((i) => category === "all" || i.category === category);
-  const chips = [{ value: "all", label: "Wszystkie" }, ...categories].map((c) => ({
+  const chips = [{ value: "all", label: t("common.all") }, ...categories].map((c) => ({
     ...c,
     count: c.value === "all" ? byQuery.length : byQuery.filter((i) => i.category === c.value).length,
   }));
@@ -26,29 +29,29 @@ export function SearchScreen({ items, categories = CATEGORIES, onOpen }: SearchS
   return (
     <div className="pb-[120px]">
       <div className="sticky top-0 z-[5] px-5 pt-[max(12px,env(safe-area-inset-top))] pb-3 flex flex-col gap-3.5 backdrop-blur-[16px] bg-[color-mix(in_oklch,var(--bg)_92%,transparent)]">
-        <h1 className="text-[30px] font-extrabold tracking-[-.04em] pt-2">Szukaj</h1>
+        <h1 className="text-[30px] font-extrabold tracking-[-.04em] pt-2">{t("search.title")}</h1>
         <div className="flex items-center gap-2.5 h-[50px] px-3.5 rounded-[15px] bg-s1 border border-s2">
           <Icon name="search" className="text-mu" />
           <input
             type="search"
-            aria-label="Szukaj w kolekcji"
+            aria-label={t("search.inCollection")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj po tytule lub twórcy..."
+            placeholder={t("search.placeholder")}
             className="flex-1 min-w-0 bg-transparent border-none outline-none text-tx text-base [&::-webkit-search-cancel-button]:hidden"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery("")}
-              aria-label="Wyczyść"
+              aria-label={t("common.clear")}
               className="w-6 h-6 rounded-full bg-s2 text-tx flex items-center justify-center p-0"
             >
               <Icon name="close" size={16} />
             </button>
           )}
         </div>
-        <div role="tablist" aria-label="Kategorie" className="flex gap-2 overflow-x-auto scrollbar-none -mx-5 px-5">
+        <div role="tablist" aria-label={t("common.categories")} className="flex gap-2 overflow-x-auto scrollbar-none -mx-5 px-5">
           {chips.map((c) => (
             <Chip key={c.value} role="tab" active={category === c.value} onClick={() => setCategory(c.value)}>
               {c.label}
@@ -58,7 +61,7 @@ export function SearchScreen({ items, categories = CATEGORIES, onOpen }: SearchS
         </div>
         <div className="text-[13px] text-mu">
           <span className="text-tx font-bold">{results.length}</span>{" "}
-          {plural(results.length, ["wynik", "wyniki", "wyników"])}
+          {t("search.results", { count: results.length })}
         </div>
       </div>
 
@@ -79,7 +82,7 @@ export function SearchScreen({ items, categories = CATEGORIES, onOpen }: SearchS
                     className="absolute top-1.5 left-1.5 text-[10px] font-semibold px-[7px] py-0.5 rounded-full border backdrop-blur-sm"
                     style={pillStyle(it.category)}
                   >
-                    {categoryDef(it.category).one}
+                    {categoryDef(it.category, t).one}
                   </span>
                 </Cover>
               </button>
@@ -93,9 +96,9 @@ export function SearchScreen({ items, categories = CATEGORIES, onOpen }: SearchS
       ) : (
         <div className="mx-5 mt-[30px] px-5 py-11 rounded-[18px] bg-s1 border border-s2 text-center">
           <p className="text-[15px] font-semibold">
-            {query.trim() ? `Brak wyników dla „${query.trim()}”` : "Brak pozycji"}
+            {query.trim() ? t("search.noResultsFor", { query: query.trim() }) : t("search.noItems")}
           </p>
-          <p className="text-[13px] text-mu mt-1">Spróbuj innej frazy lub kategorii.</p>
+          <p className="text-[13px] text-mu mt-1">{t("search.tryOther")}</p>
         </div>
       )}
     </div>
